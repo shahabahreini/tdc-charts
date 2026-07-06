@@ -1,51 +1,87 @@
 # TDC Developer Guide
 
-Welcome to the TimeDensityCandle (TDC) developer guide! This document outlines the architecture, module layout, and error-handling strategies.
-
 ## Table of Contents
+
 1. [Architecture](#architecture)
 2. [Module Layout](#module-layout)
-3. [Error Handling](#error-handling)
-4. [Adding Features](#adding-features)
+3. [Configuration Flow](#configuration-flow)
+4. [Chart Rendering](#chart-rendering)
+5. [Quality Checks](#quality-checks)
+6. [Release Workflow](#release-workflow)
 
 ## Architecture
 
-TDC is designed to be highly modular and configuration-driven.
-- **Config**: Pydantic strictly validates all parameters from `tdc.yaml`.
-- **Data**: Uses `yfinance` to fetch OHLCV data. Retries are handled via `tenacity`.
-- **Simulation**: Uses a Brownian bridge constrained by O/H/L/C to simulate ticks when intraday data is not available.
-- **Density**: Uses `numpy` histograms to compute the density profile and `scipy.stats` for distribution moments.
-- **Rendering**: Generates Plotly shapes dynamically based on the density matrix.
+TDC uses a `src/` package layout and keeps the pipeline split by responsibility.
+
+- `config.py` validates YAML with Pydantic models.
+- `data.py` fetches Yahoo Finance OHLCV data and normalizes columns.
+- `simulate.py` creates constrained synthetic intrabar paths.
+- `density.py` computes normalized density vectors and profile statistics.
+- `render.py` builds Plotly charts and feature overlays.
+- `export.py` writes feature artifacts.
+- `main.py` orchestrates CLI execution.
 
 ## Module Layout
 
 ```text
 tdc-charts/
-├── pyproject.toml         # Managed by uv
-├── tdc.yaml               # Runtime configuration
+├── pyproject.toml
+├── uv.lock
+├── tdc.yaml
+├── docs/
+├── tests/
 └── src/tdc/
-    ├── __init__.py
-    ├── main.py            # CLI entry and orchestration pipeline
-    ├── config.py          # Pydantic models for configuration
-    ├── logger.py          # Rich terminal logging
-    ├── exceptions.py      # Custom exception hierarchy
-    ├── data.py            # yfinance fetching logic
-    ├── simulate.py        # Tick simulation algorithm
-    ├── density.py         # Profile extraction
-    ├── render.py          # Plotly drawing
-    └── export.py          # CSV export
+    ├── config.py
+    ├── data.py
+    ├── density.py
+    ├── exceptions.py
+    ├── export.py
+    ├── logger.py
+    ├── main.py
+    ├── render.py
+    └── simulate.py
 ```
 
-## Error Handling
+## Configuration Flow
 
-We use a custom exception hierarchy defined in `src/tdc/exceptions.py`. 
-- Always raise a specific exception (e.g. `DataFetchError`) rather than a generic `ValueError`.
-- The `logger.py` module installs `rich.traceback` globally (`show_locals=True`). This means unhandled exceptions will print a beautiful terminal trace that includes the state of local variables at every frame, making debugging effortless.
-- Ensure all modules log their progress via `logger.info()` or `logger.debug()`.
+The CLI loads `tdc.yaml` once at startup, validates it with Pydantic, then applies the configured logging level. Runtime behavior should be driven through config keys instead of hardcoded values.
 
-## Adding Features
+Legacy feature keys are still accepted:
 
-To add a new feature:
-1. Update `tdc.yaml` and the corresponding Pydantic models in `config.py`.
-2. Implement the logic in the appropriate module (e.g. `density.py`).
-3. Update `main.py` if orchestration needs to change.
+- `enable_poc_overlay` maps to POC marker and POC drift toggles.
+- `concentration_ratio_flagging` maps to indecision flags.
+
+## Chart Rendering
+
+The chart uses Plotly shapes for candle bodies, wicks, POC ticks, and Value Area boxes. It uses Plotly traces for legend entries, POC drift, and indecision markers.
+
+Overlay behavior:
+
+- POC marker: gold horizontal line per candle.
+- POC drift: dashed gold line through POC prices.
+- Value Area: dotted blue rectangle around the contiguous 68% density zone.
+- Indecision: purple triangle above candles in the bottom concentration-ratio quantile.
+
+## Quality Checks
+
+Run these before committing:
+
+```bash
+uv run ruff check .
+uv run pytest
+uv build
+```
+
+Tests cover config compatibility, simulation validation, density math, rendering overlays, and export behavior.
+
+## Release Workflow
+
+Use uv to bump versions:
+
+```bash
+uv version --bump patch
+uv version --bump minor
+uv version --bump major
+```
+
+Ruff runs in GitHub Actions for changes targeting `main`. Tags matching `v*.*.*` build a wheel and publish a GitHub Release when the tagged commit is on `main`.

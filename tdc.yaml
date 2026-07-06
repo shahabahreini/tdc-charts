@@ -1,6 +1,7 @@
 app:
   debug: false
   output_dir: "./output"
+  log_level: "INFO"
 
 data:
   ticker: "AAPL"
@@ -12,15 +13,36 @@ algorithm:
   nbins: 20
   volatility_factor: 0.03
   enable_volume_weighting: false
+  synthetic_tick_count: 100
+  random_seed: 42
 
 features:
   export_csv: true
+  export_formats:
+    - "csv"
   enable_poc_overlay: true
+  enable_poc_marker: true
+  enable_poc_drift_line: true
   enable_value_area: true
   concentration_ratio_flagging: true
+  enable_indecision_flags: true
+  indecision_quantile: 0.25
 
 rendering:
   enable_chart: true
   color_scheme:
     bull: "rgba(0, 255, 0, {alpha})"
     bear: "rgba(255, 0, 0, {alpha})"
+  overlay_style:
+    poc_color: "gold"
+    poc_width: 3
+    poc_drift_dash: "dash"
+    value_area_color: "deepskyblue"
+    value_area_fill: "rgba(0, 191, 255, 0.08)"
+    value_area_dash: "dot"
+    indecision_color: "purple"
+    indecision_size: 11
+    candle_half_width: 0.4
+  legend:
+    enabled: true
+    position: "top_right"

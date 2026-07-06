@@ -145,5 +145,5 @@ Thumbs.db
 *.swp
 *.swo
 
-# uv / pip build artifacts
-uv.lock
+# uv cache
+.uv-cache/
