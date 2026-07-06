@@ -30,6 +30,7 @@ features:
 
 rendering:
   enable_chart: true
+  full_heatmap: false
   color_scheme:
     bull: "rgba(38, 166, 154, {alpha})"
     bear: "rgba(239, 83, 80, {alpha})"

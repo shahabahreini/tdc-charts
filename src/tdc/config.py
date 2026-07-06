@@ -93,6 +93,7 @@ class LegendConfig(BaseModel):
 
 class RenderingConfig(BaseModel):
     enable_chart: bool = Field(default=True)
+    full_heatmap: bool = Field(default=False, description="Render density heatmap over the full candle range (low to high) instead of just inside the body")
     color_scheme: ColorScheme = Field(default_factory=ColorScheme)
     overlay_style: OverlayStyle = Field(default_factory=OverlayStyle)
     legend: LegendConfig = Field(default_factory=LegendConfig)

@@ -57,6 +57,7 @@ uv run tdc --config tdc.yaml
 | `rendering.overlay_style.indecision_color` | string | `purple` | Indecision marker color. |
 | `rendering.overlay_style.indecision_size` | int | `11` | Indecision marker size. |
 | `rendering.overlay_style.candle_half_width` | float | `0.4` | Candle half-width on the x-axis. |
+| `rendering.full_heatmap` | bool | `false` | Shows heatmap over full high/low range instead of just candle body. |
 | `rendering.legend.enabled` | bool | `true` | Shows the chart legend. |
 | `rendering.legend.position` | string | `top_right` | Legend placement. |
 

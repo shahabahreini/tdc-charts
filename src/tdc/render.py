@@ -15,6 +15,11 @@ def render_heatmap_candle(
     bins: np.ndarray,
     half_width: float,
     config: RenderingConfig,
+    heatmap_x: list[float],
+    heatmap_y: list[float],
+    heatmap_base: list[float],
+    heatmap_width: list[float],
+    heatmap_colors: list[str],
 ) -> None:
     """
     Render a single TimeDensityCandle on the provided Plotly figure.
@@ -26,6 +31,7 @@ def render_heatmap_candle(
     color_template = config.color_scheme.bull if close_p >= open_p else config.color_scheme.bear
 
     # 1. Traditional candle wick using the bull/bear color (more dominant)
+    # We draw this with layer="above" so it renders on top of the heatmap trace
     fig.add_shape(
         type="line",
         x0=x_position,
@@ -33,13 +39,14 @@ def render_heatmap_candle(
         x1=x_position,
         y1=high_p,
         line={"color": color_template.format(alpha=0.8), "width": 1.5},
-        layer="below",
+        layer="above",
     )
 
     body_min = min(open_p, close_p)
     body_max = max(open_p, close_p)
 
     # 2. Draw the base candle body fill (no border)
+    # We draw this with layer="below" so it renders underneath the heatmap trace
     fig.add_shape(
         type="rect",
         x0=x_position - half_width,
@@ -51,28 +58,31 @@ def render_heatmap_candle(
         layer="below",
     )
 
-    # 3. Draw the density profile (heatmap) blocks inside the candle body (no border)
+    # 3. Collect the density profile (heatmap) blocks
     for j, density_value in enumerate(density):
-        draw_low = max(bins[j], body_min)
-        draw_high = min(bins[j + 1], body_max)
+        if config.full_heatmap:
+            # Full heatmap: spans from low to high
+            draw_low = bins[j]
+            draw_high = bins[j + 1]
+        else:
+            # Clamped heatmap: only inside the body
+            draw_low = max(bins[j], body_min)
+            draw_high = min(bins[j + 1], body_max)
 
         if draw_low >= draw_high:
             continue
 
-        # Smooth, subtle heatmap representation (complementary overlay inside the candle body)
+        # Smooth, subtle heatmap representation
         alpha_j = float(density_value) * 0.45
-        fig.add_shape(
-            type="rect",
-            x0=x_position - half_width,
-            y0=draw_low,
-            x1=x_position + half_width,
-            y1=draw_high,
-            fillcolor=color_template.format(alpha=alpha_j),
-            line={"width": 0},
-            layer="below",
-        )
+        
+        heatmap_x.append(float(x_position))
+        heatmap_y.append(float(draw_high - draw_low))
+        heatmap_base.append(float(draw_low))
+        heatmap_width.append(float(half_width * 2))
+        heatmap_colors.append(color_template.format(alpha=alpha_j))
 
     # 4. Draw the traditional candle body border outline (no fill) on top of density blocks
+    # We draw this with layer="above" so it renders on top of the heatmap trace
     fig.add_shape(
         type="rect",
         x0=x_position - half_width,
@@ -80,7 +90,7 @@ def render_heatmap_candle(
         x1=x_position + half_width,
         y1=body_max,
         line={"color": color_template.format(alpha=0.8), "width": 1.5},
-        layer="below",
+        layer="above",
     )
 
 
@@ -189,6 +199,12 @@ def build_heatmap_chart(
         poc_y = []
         va_x = []
         va_y = []
+        
+        heatmap_x = []
+        heatmap_y = []
+        heatmap_base = []
+        heatmap_width = []
+        heatmap_colors = []
 
         for i, row in feature_df.reset_index(drop=True).iterrows():
             ohlc = {
@@ -200,7 +216,10 @@ def build_heatmap_chart(
             density = row[density_cols].to_numpy(dtype=float)
             bins = np.linspace(ohlc["low"], ohlc["high"], len(density) + 1)
 
-            render_heatmap_candle(fig, i, ohlc, density, bins, half_width, rendering_config)
+            render_heatmap_candle(
+                fig, i, ohlc, density, bins, half_width, rendering_config,
+                heatmap_x, heatmap_y, heatmap_base, heatmap_width, heatmap_colors
+            )
 
             if features_config.enable_poc_marker:
                 poc_x.extend([i - half_width, i + half_width, None])
@@ -213,6 +232,24 @@ def build_heatmap_chart(
                 y1 = row["value_area_high"]
                 va_x.extend([x0, x1, x1, x0, x0, None])
                 va_y.extend([y0, y0, y1, y1, y0, None])
+
+        # Add the density profile heatmap as a single toggleable Bar trace
+        if heatmap_x:
+            fig.add_trace(
+                go.Bar(
+                    x=heatmap_x,
+                    y=heatmap_y,
+                    base=heatmap_base,
+                    width=heatmap_width,
+                    marker={
+                        "color": heatmap_colors,
+                        "line": {"width": 0},
+                    },
+                    name="Density Heatmap",
+                    hoverinfo="none",
+                    showlegend=True,
+                )
+            )
 
         if features_config.enable_value_area and len(feature_df) > 0:
             fig.add_trace(

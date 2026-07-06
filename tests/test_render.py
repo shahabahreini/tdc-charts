@@ -54,3 +54,24 @@ def test_value_area_trace_uses_dotted_blue_style() -> None:
     assert trace.line.color == "deepskyblue"
     assert trace.line.dash == "dot"
     assert trace.fill == "toself"
+
+
+def test_heatmap_full_range_rendering() -> None:
+    # 1. Test standard/clamped heatmap (default)
+    rendering_default = RenderingConfig(full_heatmap=False)
+    fig_default = build_heatmap_chart(_feature_df(), rendering_default, FeaturesConfig())
+    heatmap_default = [t for t in fig_default.data if t.name == "Density Heatmap"][0]
+    
+    # First candle has indices where x == 0
+    candle_0_indices = [i for i, x in enumerate(heatmap_default.x) if x == 0]
+    total_height_0_default = sum(heatmap_default.y[i] for i in candle_0_indices)
+    assert abs(total_height_0_default - 1.0) < 1e-5  # Open to Close body height = 11.0 - 10.0 = 1.0
+
+    # 2. Test full heatmap
+    rendering_full = RenderingConfig(full_heatmap=True)
+    fig_full = build_heatmap_chart(_feature_df(), rendering_full, FeaturesConfig())
+    heatmap_full = [t for t in fig_full.data if t.name == "Density Heatmap"][0]
+    
+    candle_0_indices_full = [i for i, x in enumerate(heatmap_full.x) if x == 0]
+    total_height_0_full = sum(heatmap_full.y[i] for i in candle_0_indices_full)
+    assert abs(total_height_0_full - 3.0) < 1e-5  # High to Low height = 12.0 - 9.0 = 3.0

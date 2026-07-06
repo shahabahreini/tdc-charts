@@ -59,12 +59,12 @@ Build a Python library/script that transforms OHLC(V) bar data into **TimeDensit
 
 ```
 FUNCTION simulate_intrabar_ticks(open, high, low, close, n_ticks, seed) -> ndarray
-    - Initialize path[0] = open
-    - For step in 1..n_ticks-2:
+- Initialize path[0] = open
+- For step in 1..n_ticks-2:
         path[step] = clip(path[step-1] + Normal(0, sigma), low, high)
         where sigma = (high - low) * volatility_factor (default 0.025-0.03)
-    - path[-1] = close
-    - RETURN path
+- path[-1] = close
+- RETURN path
 ```
 
 Used only when `mode='synthetic'`. When `mode='real'`, tick series is the actual intrabar price array filtered by `bar_id`.
@@ -73,48 +73,48 @@ Used only when `mode='synthetic'`. When `mode='real'`, tick series is the actual
 
 ```
 FUNCTION compute_density_profile(ticks, low, high, nbins) -> ndarray
-    - bins = linspace(low, high, nbins+1)
-    - counts = histogram(ticks, bins)
-    - IF volume weights available: counts = weighted histogram
-    - density = counts / max(counts)
-    - RETURN density, bins
+- bins = linspace(low, high, nbins+1)
+- counts = histogram(ticks, bins)
+- IF volume weights available: counts = weighted histogram
+- density = counts / max(counts)
+- RETURN density, bins
 ```
 
 ### 4.3 Profile Statistics
 
 ```
 FUNCTION compute_profile_stats(ticks, density, bins) -> dict
-    - poc_price = bin_center[argmax(density)]
-    - skew, kurtosis = scipy.stats.skew/kurtosis(ticks)
-    - value_area = smallest contiguous bin range containing 68% of total density mass
-    - concentration_ratio = max(density) / mean(density)
-    - RETURN {poc_price, skew, kurtosis, value_area_low, value_area_high, concentration_ratio}
+- poc_price = bin_center[argmax(density)]
+- skew, kurtosis = scipy.stats.skew/kurtosis(ticks)
+- value_area = smallest contiguous bin range containing 68% of total density mass
+- concentration_ratio = max(density) / mean(density)
+- RETURN {poc_price, skew, kurtosis, value_area_low, value_area_high, concentration_ratio}
 ```
 
 ### 4.4 Rendering
 
 ```
 FUNCTION render_heatmap_candle(fig, x_position, ohlc, density, bins, half_width, color_scheme):
-    - Draw wick: vertical line from low to high at x_position
-    - Draw body outline: rectangle bounded by open/close
-    - FOR each bin j:
+- Draw wick: vertical line from low to high at x_position
+- Draw body outline: rectangle bounded by open/close
+- FOR each bin j:
         alpha_j = base_alpha + (1 - base_alpha) * density[j]
         color_j = color_scheme.bull if close >= open else color_scheme.bear, with alpha_j
         Draw filled rectangle [x_position - half_width, x_position + half_width] x [bins[j], bins[j+1]]
-    - Overlay POC marker at poc_price (optional, thin horizontal tick)
+- Overlay POC marker at poc_price (optional, thin horizontal tick)
 ```
 
 ### 4.5 Orchestration
 
 ```
 FUNCTION build_heatmap_chart(df, intrabar_data=None, nbins=20, mode='synthetic') -> (Figure, DataFrame)
-    - FOR each bar i in df:
+- FOR each bar i in df:
         ticks = simulate_intrabar_ticks(...) OR real intrabar slice
         density, bins = compute_density_profile(ticks, low_i, high_i, nbins)
         stats = compute_profile_stats(ticks, density, bins)
         render_heatmap_candle(fig, i, ohlc_i, density, bins, half_width, color_scheme)
         append row to feature_df: ohlc_i + density + stats
-    - RETURN fig, feature_df
+- RETURN fig, feature_df
 ```
 
 ---

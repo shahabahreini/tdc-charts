@@ -68,10 +68,10 @@ project_name/
 ## Logging & Error Handling
 
 - Every function must have:
-  - Type hints for all parameters and return values.
-  - A docstring describing purpose, args, and returns.
-  - Try/except blocks around I/O, network, or external-API calls with specific exceptions caught.
-  - Logging at entry/exit for critical operations (debug level) and errors (error level).
+- Type hints for all parameters and return values.
+- A docstring describing purpose, args, and returns.
+- Try/except blocks around I/O, network, or external-API calls with specific exceptions caught.
+- Logging at entry/exit for critical operations (debug level) and errors (error level).
 - Use Python's `logging` module configured centrally; never use bare `print()`.
 - Log levels must be configurable via YAML (e.g. `logging.level: INFO`).
 - Raise custom exceptions for domain-specific failures instead of generic `Exception`.
@@ -79,11 +79,11 @@ project_name/
 ### Edge Case Coverage
 
 - Every function must handle, at minimum:
-  - Empty, `None`, or missing input (e.g. empty API response, missing config key).
-  - Wrong type or malformed data (e.g. non-numeric price, corrupted YAML field).
-  - Boundary values (zero, negative, max/min limits, empty date ranges).
-  - External failures: network timeout, rate limiting, API downtime, invalid symbol/ticker.
-  - Duplicate, out-of-order, or partially missing time-series data.
+- Empty, `None`, or missing input (e.g. empty API response, missing config key).
+- Wrong type or malformed data (e.g. non-numeric price, corrupted YAML field).
+- Boundary values (zero, negative, max/min limits, empty date ranges).
+- External failures: network timeout, rate limiting, API downtime, invalid symbol/ticker.
+- Duplicate, out-of-order, or partially missing time-series data.
 - Edge cases must be covered by dedicated unit tests, not just handled inline.
 
 ### Meaningful Error Messages
@@ -104,9 +104,9 @@ project_name/
 
 - Use `plotly` for all interactive plots (candlestick charts, zoomable time series, dashboards exported to HTML) — default choice for any user-facing visualization.
 - Where `plotly` is limited (e.g. complex statistical plots, publication-quality static figures, 3D scientific surfaces, signal-processing visuals), use appropriate scientific libraries instead:
-  - `matplotlib` — static, publication-ready figures and fine-grained layout control.
-  - `seaborn` — statistical plots (distributions, correlation heatmaps, regression plots).
-  - `scipy` / `statsmodels` — companion analysis feeding into any of the above (e.g. trend fits, smoothing, FFT) rather than plotting itself.
+- `matplotlib` — static, publication-ready figures and fine-grained layout control.
+- `seaborn` — statistical plots (distributions, correlation heatmaps, regression plots).
+- `scipy` / `statsmodels` — companion analysis feeding into any of the above (e.g. trend fits, smoothing, FFT) rather than plotting itself.
 - Chart type selection must be config-driven (YAML flag, e.g. `plots.engine: plotly|matplotlib`), not hardcoded, so users can switch rendering backends without code changes.
 - All generated charts must be saved as artifacts (HTML for plotly, PNG/SVG for static libs) in a dedicated `output/` or `plots/` directory.
 
@@ -126,8 +126,8 @@ project_name/
 ## Documentation Standards
 
 - Maintain two documents minimum:
-  - `docs/developer_guide.md`: architecture, module responsibilities, setup, contribution rules.
-  - `docs/user_guide.md`: installation, configuration reference, usage examples.
+- `docs/developer_guide.md`: architecture, module responsibilities, setup, contribution rules.
+- `docs/user_guide.md`: installation, configuration reference, usage examples.
 - Both must open with a Table of Contents.
 - Writing style: clear, brief, no filler or overstated claims — one idea per sentence.
 - Every config key must be documented with type, default, and purpose.
