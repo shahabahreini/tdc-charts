@@ -1,0 +1,26 @@
+app:
+  debug: false
+  output_dir: "./output"
+
+data:
+  ticker: "AAPL"
+  interval: "1d"
+  period: "1mo"
+
+algorithm:
+  mode: "synthetic" # 'synthetic' or 'real'
+  nbins: 20
+  volatility_factor: 0.03
+  enable_volume_weighting: false
+
+features:
+  export_csv: true
+  enable_poc_overlay: true
+  enable_value_area: true
+  concentration_ratio_flagging: true
+
+rendering:
+  enable_chart: true
+  color_scheme:
+    bull: "rgba(0, 255, 0, {alpha})"
+    bear: "rgba(255, 0, 0, {alpha})"
