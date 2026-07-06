@@ -58,28 +58,45 @@ def render_heatmap_candle(
         layer="below",
     )
 
-    # 3. Collect the density profile (heatmap) blocks
+    # 3. Collect the density profile (heatmap) blocks (split into lower tail, body, and upper tail)
     for j, density_value in enumerate(density):
-        if config.full_heatmap:
-            # Full heatmap: spans from low to high
-            draw_low = bins[j]
-            draw_high = bins[j + 1]
-        else:
-            # Clamped heatmap: only inside the body
-            draw_low = max(bins[j], body_min)
-            draw_high = min(bins[j + 1], body_max)
-
-        if draw_low >= draw_high:
-            continue
-
-        # Smooth, subtle heatmap representation
-        alpha_j = float(density_value) * 0.45
+        bin_low = bins[j]
+        bin_high = bins[j + 1]
         
-        heatmap_x.append(float(x_position))
-        heatmap_y.append(float(draw_high - draw_low))
-        heatmap_base.append(float(draw_low))
-        heatmap_width.append(float(half_width * 2))
-        heatmap_colors.append(color_template.format(alpha=alpha_j))
+        parts = [] # list of tuples: (draw_low, draw_high, width)
+
+        # Lower tail part
+        lt_low = bin_low
+        lt_high = min(bin_high, body_min)
+        if lt_low < lt_high:
+            if config.full_heatmap:
+                parts.append((lt_low, lt_high, half_width * 2))
+            elif config.extend_to_tails:
+                parts.append((lt_low, lt_high, 0.08))
+
+        # Body part
+        b_low = max(bin_low, body_min)
+        b_high = min(bin_high, body_max)
+        if b_low < b_high:
+            parts.append((b_low, b_high, half_width * 2))
+
+        # Upper tail part
+        ut_low = max(bin_low, body_max)
+        ut_high = bin_high
+        if ut_low < ut_high:
+            if config.full_heatmap:
+                parts.append((ut_low, ut_high, half_width * 2))
+            elif config.extend_to_tails:
+                parts.append((ut_low, ut_high, 0.08))
+
+        for draw_low, draw_high, w in parts:
+            alpha_j = float(density_value) * 0.45
+            
+            heatmap_x.append(float(x_position))
+            heatmap_y.append(float(draw_high - draw_low))
+            heatmap_base.append(float(draw_low))
+            heatmap_width.append(float(w))
+            heatmap_colors.append(color_template.format(alpha=alpha_j))
 
     # 4. Draw the traditional candle body border outline (no fill) on top of density blocks
     # We draw this with layer="above" so it renders on top of the heatmap trace

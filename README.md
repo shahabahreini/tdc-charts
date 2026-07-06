@@ -117,6 +117,7 @@ The application reads options from `tdc.yaml` by default. Below is a summary of 
 | **`features.enable_indecision_flags`** | `bool` | `true` | Flags range-expansion / low-concentration bars. |
 | **`features.indecision_quantile`** | `float` | `0.25` | Lower threshold quantile for indecision flags. |
 | **`rendering.full_heatmap`** | `bool` | `false` | Renders density heatmap over the full candle range (low to high) instead of just inside the body. |
+| **`rendering.extend_to_tails`** | `bool` | `false` | Extends the density heatmap over the candle tails/wicks with a narrower width. |
 | **`rendering.legend.enabled`** | `bool` | `true` | Toggles rendering of the chart legend. |
 | **`rendering.legend.position`** | `str` | `"top_right"` | Legend layout position. |
 
@@ -126,7 +127,7 @@ The application reads options from `tdc.yaml` by default. Below is a summary of 
 
 1.  **TradingView-Inspired Palette**: Smooth Emerald (`rgba(38, 166, 154, ...)`) for bullish candles and Coral (`rgba(239, 83, 80, ...)`) for bearish candles.
 2. **Dominant Candlestick Shape**: Candle bodies are outlined in their dominant color with a border width of `1.5px` and pre-filled with a low-opacity base color.
-3. **Density Heatmap**: Smooth, subtle color blocks showing price-time density. Can be toggled on/off in the legend, and configured via `full_heatmap` to span the full high/low range or remain inside the candle body.
+3. **Density Heatmap**: Smooth, subtle color blocks showing price-time density. Can be toggled on/off in the legend. Can be configured to cover the full high/low range (`full_heatmap`), or extended over the candle tails with a narrower width (`extend_to_tails`).
 4. **Value Area (VA)**: Represented as dotted blue boundary lines enclosing the highest density region (typically ~68% of the candle's price distribution). Can be toggled on/off in the legend.
 5. **Point of Control (POC)**: Gold horizontal lines representing the maximum-density level. Can be toggled on/off in the legend.
 

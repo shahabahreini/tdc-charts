@@ -75,3 +75,26 @@ def test_heatmap_full_range_rendering() -> None:
     candle_0_indices_full = [i for i, x in enumerate(heatmap_full.x) if x == 0]
     total_height_0_full = sum(heatmap_full.y[i] for i in candle_0_indices_full)
     assert abs(total_height_0_full - 3.0) < 1e-5  # High to Low height = 12.0 - 9.0 = 3.0
+
+
+def test_heatmap_extend_to_tails_rendering() -> None:
+    # 1. Test extend_to_tails=True
+    rendering_tails = RenderingConfig(extend_to_tails=True)
+    fig_tails = build_heatmap_chart(_feature_df(), rendering_tails, FeaturesConfig())
+    heatmap_tails = [t for t in fig_tails.data if t.name == "Density Heatmap"][0]
+    
+    # First candle indices where x == 0
+    candle_0_indices = [i for i, x in enumerate(heatmap_tails.x) if x == 0]
+    
+    # The total height of all parts should sum to 3.0 (from 9.0 to 12.0)
+    total_height_0 = sum(heatmap_tails.y[i] for i in candle_0_indices)
+    assert abs(total_height_0 - 3.0) < 1e-5
+    
+    # The body part has width 0.8 (since half_width=0.4, width = 0.8)
+    # The tail parts have width 0.08
+    body_widths = [heatmap_tails.width[i] for i in candle_0_indices if heatmap_tails.width[i] == 0.8]
+    tail_widths = [heatmap_tails.width[i] for i in candle_0_indices if heatmap_tails.width[i] == 0.08]
+    
+    # Check that both tail and body widths are present
+    assert len(body_widths) > 0
+    assert len(tail_widths) > 0
