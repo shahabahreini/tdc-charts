@@ -31,8 +31,8 @@ features:
 rendering:
   enable_chart: true
   color_scheme:
-    bull: "rgba(0, 255, 0, {alpha})"
-    bear: "rgba(255, 0, 0, {alpha})"
+    bull: "rgba(38, 166, 154, {alpha})"
+    bear: "rgba(239, 83, 80, {alpha})"
   overlay_style:
     poc_color: "gold"
     poc_width: 3

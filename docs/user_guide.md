@@ -46,8 +46,8 @@ uv run tdc --config tdc.yaml
 | `features.enable_indecision_flags` | bool | `true` | Shows indecision markers. |
 | `features.indecision_quantile` | float | `0.25` | Bottom quantile for indecision flags. |
 | `rendering.enable_chart` | bool | `true` | Enables chart generation. |
-| `rendering.color_scheme.bull` | string | `rgba(0, 255, 0, {alpha})` | Bull candle density color template. |
-| `rendering.color_scheme.bear` | string | `rgba(255, 0, 0, {alpha})` | Bear candle density color template. |
+| `rendering.color_scheme.bull` | string | `rgba(38, 166, 154, {alpha})` | Bull candle density color template. |
+| `rendering.color_scheme.bear` | string | `rgba(239, 83, 80, {alpha})` | Bear candle density color template. |
 | `rendering.overlay_style.poc_color` | string | `gold` | POC marker and drift color. |
 | `rendering.overlay_style.poc_width` | int | `3` | POC marker width. |
 | `rendering.overlay_style.poc_drift_dash` | string | `dash` | POC drift dash style. |

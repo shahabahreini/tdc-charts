@@ -25,27 +25,33 @@ def render_heatmap_candle(
     close_p = ohlc["close"]
     color_template = config.color_scheme.bull if close_p >= open_p else config.color_scheme.bear
 
+    # 1. Traditional candle wick using the bull/bear color (more dominant)
     fig.add_shape(
         type="line",
         x0=x_position,
         y0=low_p,
         x1=x_position,
         y1=high_p,
-        line={"color": "gray", "width": 1},
+        line={"color": color_template.format(alpha=0.8), "width": 1.5},
+        layer="below",
     )
 
     body_min = min(open_p, close_p)
     body_max = max(open_p, close_p)
+
+    # 2. Draw the base candle body fill (no border)
     fig.add_shape(
         type="rect",
         x0=x_position - half_width,
         y0=body_min,
         x1=x_position + half_width,
         y1=body_max,
-        line={"color": "gray", "width": 1},
+        fillcolor=color_template.format(alpha=0.15),
+        line={"width": 0},
+        layer="below",
     )
 
-    base_alpha = 0.1
+    # 3. Draw the density profile (heatmap) blocks inside the candle body (no border)
     for j, density_value in enumerate(density):
         draw_low = max(bins[j], body_min)
         draw_high = min(bins[j + 1], body_max)
@@ -53,7 +59,8 @@ def render_heatmap_candle(
         if draw_low >= draw_high:
             continue
 
-        alpha_j = base_alpha + (1 - base_alpha) * float(density_value)
+        # Smooth, subtle heatmap representation (complementary overlay inside the candle body)
+        alpha_j = float(density_value) * 0.45
         fig.add_shape(
             type="rect",
             x0=x_position - half_width,
@@ -64,6 +71,17 @@ def render_heatmap_candle(
             line={"width": 0},
             layer="below",
         )
+
+    # 4. Draw the traditional candle body border outline (no fill) on top of density blocks
+    fig.add_shape(
+        type="rect",
+        x0=x_position - half_width,
+        y0=body_min,
+        x1=x_position + half_width,
+        y1=body_max,
+        line={"color": color_template.format(alpha=0.8), "width": 1.5},
+        layer="below",
+    )
 
 
 def _legend_position(position: str) -> dict[str, float | str]:
@@ -76,32 +94,7 @@ def _legend_position(position: str) -> dict[str, float | str]:
     return positions[position]
 
 
-def _add_legend_proxy_traces(
-    fig: go.Figure,
-    features_config: FeaturesConfig,
-    rendering_config: RenderingConfig,
-) -> None:
-    style = rendering_config.overlay_style
-    if features_config.enable_poc_marker:
-        fig.add_trace(
-            go.Scatter(
-                x=[None],
-                y=[None],
-                mode="lines",
-                line={"color": style.poc_color, "width": style.poc_width},
-                name="POC marker",
-            ),
-        )
-    if features_config.enable_value_area:
-        fig.add_trace(
-            go.Scatter(
-                x=[None],
-                y=[None],
-                mode="lines",
-                line={"color": style.value_area_color, "width": 2, "dash": style.value_area_dash},
-                name="Value Area",
-            ),
-        )
+# Legend proxy traces are no longer needed as POC marker and Value Area are rendered as interactive Scatter traces.
 
 
 def _add_poc_drift_trace(
@@ -192,6 +185,11 @@ def build_heatmap_chart(
         half_width = rendering_config.overlay_style.candle_half_width
         density_cols = [c for c in feature_df.columns if c.startswith("density_")]
 
+        poc_x = []
+        poc_y = []
+        va_x = []
+        va_y = []
+
         for i, row in feature_df.reset_index(drop=True).iterrows():
             ohlc = {
                 "open": float(row["open"]),
@@ -205,36 +203,50 @@ def build_heatmap_chart(
             render_heatmap_candle(fig, i, ohlc, density, bins, half_width, rendering_config)
 
             if features_config.enable_poc_marker:
-                fig.add_shape(
-                    type="line",
-                    x0=i - half_width,
-                    y0=row["poc_price"],
-                    x1=i + half_width,
-                    y1=row["poc_price"],
-                    line={
-                        "color": rendering_config.overlay_style.poc_color,
-                        "width": rendering_config.overlay_style.poc_width,
-                    },
-                    layer="above",
-                )
+                poc_x.extend([i - half_width, i + half_width, None])
+                poc_y.extend([row["poc_price"], row["poc_price"], None])
 
             if features_config.enable_value_area:
-                fig.add_shape(
-                    type="rect",
-                    x0=i - half_width,
-                    y0=row["value_area_low"],
-                    x1=i + half_width,
-                    y1=row["value_area_high"],
+                x0 = i - half_width
+                x1 = i + half_width
+                y0 = row["value_area_low"]
+                y1 = row["value_area_high"]
+                va_x.extend([x0, x1, x1, x0, x0, None])
+                va_y.extend([y0, y0, y1, y1, y0, None])
+
+        if features_config.enable_value_area and len(feature_df) > 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=va_x,
+                    y=va_y,
+                    mode="lines",
+                    fill="toself",
                     fillcolor=rendering_config.overlay_style.value_area_fill,
                     line={
                         "color": rendering_config.overlay_style.value_area_color,
                         "width": 2,
                         "dash": rendering_config.overlay_style.value_area_dash,
                     },
-                    layer="above",
+                    name="Value Area",
+                    hoverinfo="none",
                 )
+            )
 
-        _add_legend_proxy_traces(fig, features_config, rendering_config)
+        if features_config.enable_poc_marker and len(feature_df) > 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=poc_x,
+                    y=poc_y,
+                    mode="lines",
+                    line={
+                        "color": rendering_config.overlay_style.poc_color,
+                        "width": rendering_config.overlay_style.poc_width,
+                    },
+                    name="POC marker",
+                    hoverinfo="none",
+                )
+            )
+
         normalized_feature_df = feature_df.reset_index(drop=True)
         _add_poc_drift_trace(fig, normalized_feature_df, features_config, rendering_config)
         _add_indecision_flags(fig, normalized_feature_df, features_config, rendering_config)

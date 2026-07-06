@@ -40,13 +40,17 @@ def test_render_can_disable_legend_and_poc_drift() -> None:
     assert "POC drift" not in names
 
 
-def test_value_area_shapes_use_dotted_blue_style() -> None:
+def test_value_area_trace_uses_dotted_blue_style() -> None:
     fig = build_heatmap_chart(_feature_df(), RenderingConfig(), FeaturesConfig())
-    value_area_shapes = [
-        shape
-        for shape in fig.layout.shapes
-        if shape.type == "rect" and shape.line.color == "deepskyblue"
+    value_area_traces = [
+        trace
+        for trace in fig.data
+        if trace.name == "Value Area"
     ]
 
-    assert value_area_shapes
-    assert all(shape.line.dash == "dot" for shape in value_area_shapes)
+    assert value_area_traces
+    assert len(value_area_traces) == 1
+    trace = value_area_traces[0]
+    assert trace.line.color == "deepskyblue"
+    assert trace.line.dash == "dot"
+    assert trace.fill == "toself"

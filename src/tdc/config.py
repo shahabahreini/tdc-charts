@@ -68,8 +68,8 @@ class FeaturesConfig(BaseModel):
 
 
 class ColorScheme(BaseModel):
-    bull: str = Field(default="rgba(0, 255, 0, {alpha})")
-    bear: str = Field(default="rgba(255, 0, 0, {alpha})")
+    bull: str = Field(default="rgba(38, 166, 154, {alpha})")
+    bear: str = Field(default="rgba(239, 83, 80, {alpha})")
 
 
 class OverlayStyle(BaseModel):
