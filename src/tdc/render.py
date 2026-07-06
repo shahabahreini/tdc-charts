@@ -30,20 +30,31 @@ def render_heatmap_candle(
     close_p = ohlc["close"]
     color_template = config.color_scheme.bull if close_p >= open_p else config.color_scheme.bear
 
-    # 1. Traditional candle wick using the bull/bear color (more dominant)
-    # We draw this with layer="above" so it renders on top of the heatmap trace
-    fig.add_shape(
-        type="line",
-        x0=x_position,
-        y0=low_p,
-        x1=x_position,
-        y1=high_p,
-        line={"color": color_template.format(alpha=0.8), "width": 1.5},
-        layer="above",
-    )
-
     body_min = min(open_p, close_p)
     body_max = max(open_p, close_p)
+
+    # 1. Traditional candle wicks/tails (only on the ends, not inside the body)
+    # We draw these with layer="above" so they render on top of the heatmap trace
+    if low_p < body_min:
+        fig.add_shape(
+            type="line",
+            x0=x_position,
+            y0=low_p,
+            x1=x_position,
+            y1=body_min,
+            line={"color": color_template.format(alpha=0.8), "width": 1.5},
+            layer="above",
+        )
+    if body_max < high_p:
+        fig.add_shape(
+            type="line",
+            x0=x_position,
+            y0=body_max,
+            x1=x_position,
+            y1=high_p,
+            line={"color": color_template.format(alpha=0.8), "width": 1.5},
+            layer="above",
+        )
 
     # 2. Draw the base candle body fill (no border)
     # We draw this with layer="below" so it renders underneath the heatmap trace
@@ -252,6 +263,7 @@ def build_heatmap_chart(
 
         # Add the density profile heatmap as a single toggleable Bar trace
         if heatmap_x:
+            # 1. The actual heatmap trace (hidden from the legend list directly, linked via legendgroup)
             fig.add_trace(
                 go.Bar(
                     x=heatmap_x,
@@ -264,6 +276,22 @@ def build_heatmap_chart(
                     },
                     name="Density Heatmap",
                     hoverinfo="none",
+                    legendgroup="Density Heatmap",
+                    showlegend=False,
+                )
+            )
+            # 2. A dummy Bar trace with a solid color to represent the heatmap in the legend.
+            # This prevents the legend icon from inheriting transparency/low opacity from the first data bins.
+            fig.add_trace(
+                go.Bar(
+                    x=[None],
+                    y=[None],
+                    name="Density Heatmap",
+                    marker={
+                        "color": rendering_config.color_scheme.bull.format(alpha=0.8),
+                        "line": {"width": 0},
+                    },
+                    legendgroup="Density Heatmap",
                     showlegend=True,
                 )
             )
@@ -310,6 +338,7 @@ def build_heatmap_chart(
             xaxis_title="Bar Index",
             yaxis_title="Price",
             template="plotly_dark",
+            barmode="overlay", # Prevent horizontal shifting of bars when multiple Bar traces exist
             showlegend=rendering_config.legend.enabled,
             legend=_legend_position(rendering_config.legend.position),
             margin={"r": 140 if rendering_config.legend.position.endswith("right") else 40},
