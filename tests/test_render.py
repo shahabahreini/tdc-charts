@@ -90,10 +90,16 @@ def test_heatmap_extend_to_tails_rendering() -> None:
     total_height_0 = sum(heatmap_tails.y[i] for i in candle_0_indices)
     assert abs(total_height_0 - 3.0) < 1e-5
     
-    # The body part has width 0.8 (since half_width=0.4, width = 0.8)
-    # The tail parts have width 0.08
-    body_widths = [heatmap_tails.width[i] for i in candle_0_indices if heatmap_tails.width[i] == 0.8]
-    tail_widths = [heatmap_tails.width[i] for i in candle_0_indices if heatmap_tails.width[i] == 0.08]
+    body_widths = [
+        heatmap_tails.width[i]
+        for i in candle_0_indices
+        if heatmap_tails.width[i] == 0.8
+    ]
+    tail_widths = [
+        heatmap_tails.width[i]
+        for i in candle_0_indices
+        if heatmap_tails.width[i] == 0.08
+    ]
     
     # Check that both tail and body widths are present
     assert len(body_widths) > 0

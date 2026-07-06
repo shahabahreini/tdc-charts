@@ -132,7 +132,8 @@ def _legend_position(position: str) -> dict[str, float | str]:
     return positions[position]
 
 
-# Legend proxy traces are no longer needed as POC marker and Value Area are rendered as interactive Scatter traces.
+# Legend proxy traces are no longer needed as POC marker and Value Area
+# are rendered as interactive Scatter traces.
 
 
 def _add_poc_drift_trace(
@@ -263,7 +264,7 @@ def build_heatmap_chart(
 
         # Add the density profile heatmap as a single toggleable Bar trace
         if heatmap_x:
-            # 1. The actual heatmap trace (hidden from the legend list directly, linked via legendgroup)
+            # 1. The actual heatmap trace (hidden from legend, linked via legendgroup)
             fig.add_trace(
                 go.Bar(
                     x=heatmap_x,
@@ -281,7 +282,8 @@ def build_heatmap_chart(
                 )
             )
             # 2. A dummy Bar trace with a solid color to represent the heatmap in the legend.
-            # This prevents the legend icon from inheriting transparency/low opacity from the first data bins.
+            # This prevents the legend icon from inheriting transparency/low opacity from the
+            # first data bins.
             fig.add_trace(
                 go.Bar(
                     x=[None],
