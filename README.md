@@ -23,9 +23,10 @@ profiles are estimates and are exported with confidence metadata and warnings.
 4. [Configuration](#configuration)
 5. [Outputs](#outputs)
 6. [Accuracy and Confidence](#accuracy-and-confidence)
-7. [Development](#development)
-8. [Release](#release)
-9. [License](#license)
+7. [Detailed Docs](#detailed-docs)
+8. [Development](#development)
+9. [Release](#release)
+10. [License](#license)
 
 ## Features
 
@@ -118,6 +119,13 @@ executed volume distribution.
 TDC therefore exports confidence and warning fields. Low-confidence cases
 include synthetic-only profiles, tied POCs, ambiguous Value Areas, degenerate
 bars, low sample counts, and hidden overlay regions.
+
+## Detailed Docs
+
+- [User Guide](docs/user_guide.md)
+- [Developer Guide](docs/developer_guide.md)
+- [Accuracy and Confidence](docs/accuracy_and_confidence.md)
+- [Technical Project Plan](docs/TDC_project_plan.md)
 
 ## Development
 
