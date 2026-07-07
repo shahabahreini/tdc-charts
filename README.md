@@ -128,6 +128,7 @@ TDC is configured via `tdc.yaml`. Below are the primary configuration parameters
 | `features.enable_indecision_flags` | `bool` | `true` | Plot markers indicating high-entropy/flat-profile bars. |
 | `rendering.full_heatmap` | `bool` | `true` | Draw density blocks across the entire candle high/low range rather than just the body. |
 | `rendering.extend_to_tails` | `bool` | `false` | Draw narrow density strips along wicks (used when `full_heatmap` is false). |
+| `rendering.show_candles` | `bool` | `true` | Render traditional candle bodies and wicks (set to `false` to hide candles). |
 | `rendering.show_session_gaps` | `bool` | `true` | Add visual vertical lines separating discontinuous trading days. |
 | `rendering.break_poc_drift_on_gaps` | `bool` | `true` | Disconnect the POC drift line across detected session gaps. |
 

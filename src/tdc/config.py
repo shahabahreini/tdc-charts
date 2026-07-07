@@ -121,6 +121,10 @@ class RenderingConfig(BaseModel):
         description="Extend the density heatmap over candle tails/wicks with a narrow width",
     )
     align_overlays_to_visible_heatmap: bool = Field(default=True)
+    show_candles: bool = Field(
+        default=True,
+        description="Render traditional candle bodies and wicks",
+    )
     show_session_gaps: bool = Field(default=True)
     break_poc_drift_on_gaps: bool = Field(default=True)
     color_scheme: ColorScheme = Field(default_factory=ColorScheme)

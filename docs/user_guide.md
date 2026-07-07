@@ -84,6 +84,7 @@ Required real-mode columns:
 | `rendering.full_heatmap` | bool | `false` | Shows heatmap over full high/low range. |
 | `rendering.extend_to_tails` | bool | `false` | Shows narrow density blocks on wicks. |
 | `rendering.align_overlays_to_visible_heatmap` | bool | `true` | Hides overlays outside rendered density. |
+| `rendering.show_candles` | bool | `true` | Renders traditional candle bodies and wicks. |
 | `rendering.show_session_gaps` | bool | `true` | Shows detected time-gap markers. |
 | `rendering.break_poc_drift_on_gaps` | bool | `true` | Breaks drift through gaps/ambiguous POCs. |
 | `rendering.legend.enabled` | bool | `true` | Shows the chart legend. |

@@ -20,6 +20,14 @@ def render_heatmap_candle(
     heatmap_base: list[float],
     heatmap_width: list[float],
     heatmap_colors: list[str],
+    bull_fill_x: list[float | None],
+    bull_fill_y: list[float | None],
+    bear_fill_x: list[float | None],
+    bear_fill_y: list[float | None],
+    bull_outline_x: list[float | None],
+    bull_outline_y: list[float | None],
+    bear_outline_x: list[float | None],
+    bear_outline_y: list[float | None],
 ) -> None:
     """
     Render a single TimeDensityCandle on the provided Plotly figure.
@@ -33,43 +41,74 @@ def render_heatmap_candle(
     body_min = min(open_p, close_p)
     body_max = max(open_p, close_p)
 
-    # 1. Traditional candle wicks/tails (only on the ends, not inside the body)
-    # We draw these with layer="above" so they render on top of the heatmap trace
-    if low_p < body_min:
-        fig.add_shape(
-            type="line",
-            x0=x_position,
-            y0=low_p,
-            x1=x_position,
-            y1=body_min,
-            line={"color": color_template.format(alpha=0.8), "width": 1.5},
-            layer="above",
-        )
-    if body_max < high_p:
-        fig.add_shape(
-            type="line",
-            x0=x_position,
-            y0=body_max,
-            x1=x_position,
-            y1=high_p,
-            line={"color": color_template.format(alpha=0.8), "width": 1.5},
-            layer="above",
-        )
+    # 1. Traditional candle wicks/tails and body outlines/fills (collected as coordinates)
+    if config.show_candles:
+        if close_p >= open_p:
+            # Bull candle
+            if low_p < body_min:
+                bull_outline_x.extend([x_position, x_position, None])
+                bull_outline_y.extend([low_p, body_min, None])
+            if body_max < high_p:
+                bull_outline_x.extend([x_position, x_position, None])
+                bull_outline_y.extend([body_max, high_p, None])
+            
+            # outline rectangle
+            bull_outline_x.extend([
+                x_position - half_width, x_position + half_width,
+                x_position + half_width, x_position - half_width,
+                x_position - half_width, None
+            ])
+            bull_outline_y.extend([
+                body_min, body_min,
+                body_max, body_max,
+                body_min, None
+            ])
 
-    # 2. Draw the base candle body fill (no border)
-    # We draw this with layer="below" so it renders underneath the heatmap trace
-    fig.add_shape(
-        type="rect",
-        x0=x_position - half_width,
-        y0=body_min,
-        x1=x_position + half_width,
-        y1=body_max,
-        fillcolor=color_template.format(alpha=0.15),
-        line={"width": 0},
-        layer="below",
-    )
+            # fill rectangle
+            bull_fill_x.extend([
+                x_position - half_width, x_position + half_width,
+                x_position + half_width, x_position - half_width,
+                x_position - half_width, None
+            ])
+            bull_fill_y.extend([
+                body_min, body_min,
+                body_max, body_max,
+                body_min, None
+            ])
+        else:
+            # Bear candle
+            if low_p < body_min:
+                bear_outline_x.extend([x_position, x_position, None])
+                bear_outline_y.extend([low_p, body_min, None])
+            if body_max < high_p:
+                bear_outline_x.extend([x_position, x_position, None])
+                bear_outline_y.extend([body_max, high_p, None])
+            
+            # outline rectangle
+            bear_outline_x.extend([
+                x_position - half_width, x_position + half_width,
+                x_position + half_width, x_position - half_width,
+                x_position - half_width, None
+            ])
+            bear_outline_y.extend([
+                body_min, body_min,
+                body_max, body_max,
+                body_min, None
+            ])
 
-    # 3. Collect the density profile (heatmap) blocks (split into lower tail, body, and upper tail)
+            # fill rectangle
+            bear_fill_x.extend([
+                x_position - half_width, x_position + half_width,
+                x_position + half_width, x_position - half_width,
+                x_position - half_width, None
+            ])
+            bear_fill_y.extend([
+                body_min, body_min,
+                body_max, body_max,
+                body_min, None
+            ])
+
+    # 2. Collect the density profile (heatmap) blocks (split into lower tail, body, and upper tail)
     for j, density_value in enumerate(density):
         bin_low = bins[j]
         bin_high = bins[j + 1]
@@ -108,18 +147,6 @@ def render_heatmap_candle(
             heatmap_base.append(float(draw_low))
             heatmap_width.append(float(w))
             heatmap_colors.append(color_template.format(alpha=alpha_j))
-
-    # 4. Draw the traditional candle body border outline (no fill) on top of density blocks
-    # We draw this with layer="above" so it renders on top of the heatmap trace
-    fig.add_shape(
-        type="rect",
-        x0=x_position - half_width,
-        y0=body_min,
-        x1=x_position + half_width,
-        y1=body_max,
-        line={"color": color_template.format(alpha=0.8), "width": 1.5},
-        layer="above",
-    )
 
 
 def _legend_position(position: str) -> dict[str, float | str]:
@@ -316,6 +343,15 @@ def build_heatmap_chart(
         heatmap_width: list[float] = []
         heatmap_colors: list[str] = []
 
+        bull_fill_x: list[float | None] = []
+        bull_fill_y: list[float | None] = []
+        bear_fill_x: list[float | None] = []
+        bear_fill_y: list[float | None] = []
+        bull_outline_x: list[float | None] = []
+        bull_outline_y: list[float | None] = []
+        bear_outline_x: list[float | None] = []
+        bear_outline_y: list[float | None] = []
+
         for i, row in feature_df.reset_index(drop=True).iterrows():
             ohlc = {
                 "open": float(row["open"]),
@@ -339,6 +375,14 @@ def build_heatmap_chart(
                 heatmap_base,
                 heatmap_width,
                 heatmap_colors,
+                bull_fill_x,
+                bull_fill_y,
+                bear_fill_x,
+                bear_fill_y,
+                bull_outline_x,
+                bull_outline_y,
+                bear_outline_x,
+                bear_outline_y,
             )
 
             visible_low, visible_high = _visible_density_range(ohlc, rendering_config)
@@ -374,6 +418,39 @@ def build_heatmap_chart(
                 if va_render_visible:
                     va_x.extend([x0, x1, x1, x0, x0, None])
                     va_y.extend([y0, y0, y1, y1, y0, None])
+
+        # Add the traditional candle body fills (so they render behind the heatmap)
+        if rendering_config.show_candles:
+            if bull_fill_x:
+                fig.add_trace(
+                    go.Scatter(
+                        x=bull_fill_x,
+                        y=bull_fill_y,
+                        mode="lines",
+                        fill="toself",
+                        fillcolor=rendering_config.color_scheme.bull.format(alpha=0.15),
+                        line={"width": 0},
+                        name="Traditional Candles",
+                        legendgroup="Traditional Candles",
+                        showlegend=False,
+                        hoverinfo="none",
+                    )
+                )
+            if bear_fill_x:
+                fig.add_trace(
+                    go.Scatter(
+                        x=bear_fill_x,
+                        y=bear_fill_y,
+                        mode="lines",
+                        fill="toself",
+                        fillcolor=rendering_config.color_scheme.bear.format(alpha=0.15),
+                        line={"width": 0},
+                        name="Traditional Candles",
+                        legendgroup="Traditional Candles",
+                        showlegend=False,
+                        hoverinfo="none",
+                    )
+                )
 
         # Add the density profile heatmap as a single toggleable Bar trace
         if heatmap_x:
@@ -428,6 +505,41 @@ def build_heatmap_chart(
                     hoverinfo="none",
                 )
             )
+
+        # Add the traditional candle wicks/outlines (so they render on top of the heatmap)
+        if rendering_config.show_candles:
+            if bull_outline_x:
+                fig.add_trace(
+                    go.Scatter(
+                        x=bull_outline_x,
+                        y=bull_outline_y,
+                        mode="lines",
+                        line={
+                            "color": rendering_config.color_scheme.bull.format(alpha=0.8),
+                            "width": 1.5,
+                        },
+                        name="Traditional Candles",
+                        legendgroup="Traditional Candles",
+                        showlegend=True,
+                        hoverinfo="none",
+                    )
+                )
+            if bear_outline_x:
+                fig.add_trace(
+                    go.Scatter(
+                        x=bear_outline_x,
+                        y=bear_outline_y,
+                        mode="lines",
+                        line={
+                            "color": rendering_config.color_scheme.bear.format(alpha=0.8),
+                            "width": 1.5,
+                        },
+                        name="Traditional Candles",
+                        legendgroup="Traditional Candles",
+                        showlegend=False,
+                        hoverinfo="none",
+                    )
+                )
 
         if features_config.enable_poc_marker and poc_x:
             fig.add_trace(

@@ -44,9 +44,10 @@ features:
 
 rendering:
   enable_chart: true
-  full_heatmap: true
-  extend_to_tails: false
+  full_heatmap: false
+  extend_to_tails: true
   align_overlays_to_visible_heatmap: true
+  show_candles: true
   show_session_gaps: true
   break_poc_drift_on_gaps: true
   color_scheme:
