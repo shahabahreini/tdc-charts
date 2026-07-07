@@ -111,14 +111,19 @@ FUNCTION render_heatmap_candle(fig, x_position, ohlc, density, bins, half_width,
 ### 4.5 Orchestration
 
 ```
-FUNCTION build_heatmap_chart(df, intrabar_data=None, nbins=20, mode='synthetic') -> (Figure, DataFrame)
+FUNCTION build_feature_frame(df, config) -> DataFrame
     - FOR each bar i in df:
         ticks = simulate_intrabar_ticks(...) OR real intrabar slice
         density, bins = compute_density_profile(ticks, low_i, high_i, nbins)
         stats = compute_profile_stats(ticks, density, bins)
-        render_heatmap_candle(fig, i, ohlc_i, density, bins, half_width, color_scheme)
         append row to feature_df: ohlc_i + density + stats
-    - RETURN fig, feature_df
+    - append drift, gap, confidence, and indecision features
+    - RETURN feature_df
+
+FUNCTION build_heatmap_chart(feature_df, rendering_config, features_config) -> Figure
+    - Render candle bodies, wicks, and density blocks from feature columns
+    - Render POC, drift, Value Area, indecision, and session gaps from exported fields
+    - RETURN fig
 ```
 
 ---

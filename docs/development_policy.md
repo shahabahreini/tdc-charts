@@ -13,6 +13,7 @@
 9. [Feature Toggling](#feature-toggling)
 10. [Documentation Standards](#documentation-standards)
 11. [Code Quality Checklist](#code-quality-checklist)
+12. [Versioning and CI](#versioning-and-ci)
 
 ## Purpose
 
@@ -140,3 +141,12 @@ project_name/
 - Testable: core logic decoupled from I/O for unit testing.
 - Reproducible: pinned dependencies via `uv.lock`, deterministic config-driven behavior.
 - Observable: structured logs, rich console output, meaningful error messages.
+- Clean: `uv run ruff check .` and `uv run pytest` pass before release.
+
+## Versioning and CI
+
+- Version bumps must work through `uv run bump patch`, `uv run bump minor`, and
+  `uv run bump major`.
+- GitHub Actions must run Ruff for changes targeting `main`.
+- Tags like `v1.0.0` must build a wheel and attach it to a GitHub Release only
+  when the tagged commit is reachable from `main`.
