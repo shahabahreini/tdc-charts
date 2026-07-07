@@ -2,14 +2,18 @@ import argparse
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from .config import load_config
 from .data import get_data
 from .exceptions import TDCBaseError
 from .export import save_features
 from .features import build_feature_frame
-from .intrabar import fetch_yahoo_intrabar_bars
+from .intrabar import fetch_alphavantage_intrabar_bars, fetch_yahoo_intrabar_bars
 from .logger import configure_logger, logger
 from .render import build_heatmap_chart
+
+load_dotenv()
 
 
 def cli() -> None:
@@ -45,6 +49,8 @@ def main(config_path: str) -> None:
     intrabar_df = None
     if config.algorithm.mode == "real" and config.data.intrabar_source == "yahoo":
         df, intrabar_df = fetch_yahoo_intrabar_bars(config.data)
+    elif config.algorithm.mode == "real" and config.data.intrabar_source == "alphavantage":
+        df, intrabar_df = fetch_alphavantage_intrabar_bars(config.data)
     else:
         df = get_data(config.data, enable_volume_weighting=config.algorithm.enable_volume_weighting)
 

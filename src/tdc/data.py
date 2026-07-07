@@ -1,4 +1,7 @@
+import os
+
 import pandas as pd
+import requests
 import yfinance as yf
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -66,12 +69,115 @@ def normalize_yf_ohlcv(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     return df
 
 
+def _parse_period_to_days(period: str) -> int:
+    value = period.strip().lower()
+    try:
+        if value.endswith("d"):
+            return int(value[:-1])
+        if value.endswith("wk"):
+            return int(value[:-2]) * 7
+        if value.endswith("mo"):
+            return int(value[:-2]) * 31
+        if value.endswith("y"):
+            return int(value[:-1]) * 365
+    except ValueError as exc:
+        raise DataFetchError(f"Invalid period: {period}") from exc
+    raise DataFetchError(f"Unsupported period format: {period}")
+
+
+def _get_api_key() -> str:
+    key = os.getenv("ALPHA_VANTAGE_API_KEY") or os.getenv("ALPHAVANTAGE_API_KEY")
+    if not key:
+        raise DataFetchError(
+            "Alpha Vantage API key is missing. Please set the ALPHA_VANTAGE_API_KEY "
+            "environment variable in your environment or .env file."
+        )
+    return key
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10), reraise=True)
+def fetch_alphavantage_data(
+    ticker: str,
+    interval: str,
+    period: str,
+) -> pd.DataFrame:
+    """
+    Fetch daily data from Alpha Vantage.
+    """
+    if interval != "1d":
+        raise DataFetchError(
+            f"Alpha Vantage parent source currently only supports '1d' interval. Got '{interval}'."
+        )
+
+    api_key = _get_api_key()
+    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={ticker}&outputsize=full&apikey={api_key}"
+
+    logger.debug(f"Fetching Alpha Vantage daily data for {ticker}")
+    try:
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+    except Exception as e:
+        raise DataFetchError(
+            f"HTTP request error while fetching {ticker} from Alpha Vantage: {e}"
+        ) from e
+
+    # Check for error or note in JSON
+    if "Error Message" in data:
+        raise DataFetchError(f"Alpha Vantage API error: {data['Error Message']}")
+    if "Note" in data:
+        raise DataFetchError(f"Alpha Vantage rate limit: {data['Note']}")
+
+    data_key = "Time Series (Daily)"
+    if data_key not in data:
+        raise DataFetchError(
+            f"Alpha Vantage response missing expected data key. Keys: {list(data.keys())}"
+        )
+
+    time_series = data[data_key]
+    df_data = []
+    for date_str, ohlcv in time_series.items():
+        df_data.append({
+            "Date": date_str,
+            "Open": float(ohlcv["1. open"]),
+            "High": float(ohlcv["2. high"]),
+            "Low": float(ohlcv["3. low"]),
+            "Close": float(ohlcv["4. close"]),
+            "Volume": float(ohlcv["5. volume"])
+        })
+
+    df = pd.DataFrame(df_data)
+    df["Date"] = pd.to_datetime(df["Date"])
+    df = df.set_index("Date").sort_index()
+
+    # Apply period filter
+    try:
+        days = _parse_period_to_days(period)
+        start_date = pd.Timestamp.now() - pd.Timedelta(days=days)
+        df = df[df.index >= start_date]
+    except Exception as e:
+        logger.warning(
+            f"Could not filter Alpha Vantage daily data by period '{period}': {e}. "
+            "Returning full history."
+        )
+
+    if df.empty:
+        raise DataFetchError(
+            f"Alpha Vantage returned no daily data for {ticker} in the period {period}"
+        )
+
+    return df
+
+
 def get_data(config: DataConfig, enable_volume_weighting: bool = False) -> pd.DataFrame:
     """
     Orchestrates fetching and cleaning of data.
     """
     try:
-        df = fetch_yf_data(config.ticker, config.interval, config.period)
+        if config.source == "alphavantage":
+            df = fetch_alphavantage_data(config.ticker, config.interval, config.period)
+        else:
+            df = fetch_yf_data(config.ticker, config.interval, config.period)
     except DataFetchError:
         logger.error(f"Failed to retrieve data for {config.ticker}")
         raise

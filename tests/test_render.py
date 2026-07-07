@@ -112,10 +112,14 @@ def test_heatmap_extend_to_tails_rendering() -> None:
 
 
 def test_render_can_disable_traditional_candles() -> None:
-    fig_default = build_heatmap_chart(_feature_df(), RenderingConfig(show_candles=True), FeaturesConfig())
+    fig_default = build_heatmap_chart(
+        _feature_df(), RenderingConfig(show_candles=True), FeaturesConfig()
+    )
     names_default = {trace.name for trace in fig_default.data}
     assert "Traditional Candles" in names_default
 
-    fig_disabled = build_heatmap_chart(_feature_df(), RenderingConfig(show_candles=False), FeaturesConfig())
+    fig_disabled = build_heatmap_chart(
+        _feature_df(), RenderingConfig(show_candles=False), FeaturesConfig()
+    )
     names_disabled = {trace.name for trace in fig_disabled.data}
     assert "Traditional Candles" not in names_disabled

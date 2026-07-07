@@ -9,7 +9,7 @@ data:
   period: "60d"
   session_timezone: "America/New_York"
   intrabar_source: "yahoo"
-  intrabar_interval: "5m"
+  intrabar_interval: "30m"
   include_extended_hours: false
   intrabar_path: null
   intrabar_timestamp_col: "timestamp"

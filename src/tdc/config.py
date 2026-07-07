@@ -18,11 +18,14 @@ class AppConfig(BaseModel):
 
 
 class DataConfig(BaseModel):
-    ticker: str = Field(..., description="Yahoo Finance ticker symbol (e.g. AAPL)")
+    ticker: str = Field(..., description="Ticker symbol (e.g. AAPL)")
+    source: Literal["yahoo", "alphavantage"] = Field(
+        default="yahoo", description="Data source provider"
+    )
     interval: str = Field(default="1d", description="Time interval (e.g. 1d, 1mo)")
     period: str = Field(default="60d", description="Time period to fetch (e.g. 60d, 1mo)")
     session_timezone: str = Field(default="America/New_York")
-    intrabar_source: Literal["yahoo", "file"] = Field(default="yahoo")
+    intrabar_source: Literal["yahoo", "alphavantage", "file"] = Field(default="yahoo")
     intrabar_interval: str = Field(default="5m")
     include_extended_hours: bool = Field(default=False)
     intrabar_path: str | None = Field(default=None)
