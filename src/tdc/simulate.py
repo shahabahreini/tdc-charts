@@ -3,6 +3,27 @@ import numpy as np
 from .exceptions import AlgorithmError
 
 
+def _bridge_segment(
+    start_price: float,
+    end_price: float,
+    length: int,
+    rng: np.random.Generator,
+    sigma: float,
+    low_p: float,
+    high_p: float,
+) -> np.ndarray:
+    if length <= 1:
+        return np.array([start_price], dtype=float)
+
+    t = np.linspace(0.0, 1.0, length)
+    mean_path = start_price + ((end_price - start_price) * t)
+    noise = rng.normal(0.0, sigma, length) * np.sin(np.pi * t)
+    segment = np.clip(mean_path + noise, low_p, high_p)
+    segment[0] = start_price
+    segment[-1] = end_price
+    return segment
+
+
 def simulate_intrabar_ticks(
     open_p: float,
     high_p: float,
@@ -13,7 +34,7 @@ def simulate_intrabar_ticks(
     seed: int | None = None,
 ) -> np.ndarray:
     """
-    Simulate a synthetic intrabar tick path constrained to OHLC bounds.
+    Simulate a synthetic OHLC-anchored intrabar bridge.
     """
     if n_ticks < 4:
         raise AlgorithmError("Synthetic tick simulation requires n_ticks >= 4")
@@ -32,26 +53,37 @@ def simulate_intrabar_ticks(
         )
 
     if high_p == low_p:
-        # Zero-range bar, return a flat line of ticks
         return np.full(n_ticks, open_p)
 
     rng = np.random.default_rng(seed)
-    path = np.zeros(n_ticks)
-    path[0] = open_p
+    sigma = max((high_p - low_p) * volatility_factor, 1e-12)
+    first_extreme, second_extreme = (high_p, low_p)
+    if rng.random() < 0.5:
+        first_extreme, second_extreme = second_extreme, first_extreme
 
-    sigma = (high_p - low_p) * volatility_factor
-    if sigma == 0:
-        sigma = 1e-6
+    idx_first, idx_second = sorted(rng.choice(range(1, n_ticks - 1), 2, replace=False))
+    anchors = [
+        (0, open_p),
+        (int(idx_first), first_extreme),
+        (int(idx_second), second_extreme),
+        (n_ticks - 1, close_p),
+    ]
 
-    for i in range(1, n_ticks - 1):
-        step = rng.normal(0, sigma)
-        path[i] = np.clip(path[i - 1] + step, low_p, high_p)
-
-    path[-1] = close_p
-
-    # Ensure high and low are actually hit in the path
-    idx_high, idx_low = rng.choice(range(1, n_ticks - 1), 2, replace=False)
-    path[idx_high] = high_p
-    path[idx_low] = low_p
+    path = np.empty(n_ticks, dtype=float)
+    for (start_idx, start_price), (end_idx, end_price) in zip(
+        anchors[:-1],
+        anchors[1:],
+        strict=True,
+    ):
+        segment = _bridge_segment(
+            start_price,
+            end_price,
+            end_idx - start_idx + 1,
+            rng,
+            sigma,
+            low_p,
+            high_p,
+        )
+        path[start_idx : end_idx + 1] = segment
 
     return path

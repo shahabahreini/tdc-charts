@@ -73,8 +73,8 @@ def render_heatmap_candle(
     for j, density_value in enumerate(density):
         bin_low = bins[j]
         bin_high = bins[j + 1]
-        
-        parts = [] # list of tuples: (draw_low, draw_high, width)
+
+        parts = []
 
         # Lower tail part
         lt_low = bin_low
@@ -102,7 +102,7 @@ def render_heatmap_candle(
 
         for draw_low, draw_high, w in parts:
             alpha_j = float(density_value) * 0.45
-            
+
             heatmap_x.append(float(x_position))
             heatmap_y.append(float(draw_high - draw_low))
             heatmap_base.append(float(draw_low))
@@ -132,8 +132,23 @@ def _legend_position(position: str) -> dict[str, float | str]:
     return positions[position]
 
 
-# Legend proxy traces are no longer needed as POC marker and Value Area
-# are rendered as interactive Scatter traces.
+def _visible_density_range(
+    ohlc: dict[str, float],
+    rendering_config: RenderingConfig,
+) -> tuple[float, float]:
+    if rendering_config.full_heatmap or rendering_config.extend_to_tails:
+        return ohlc["low"], ohlc["high"]
+    return min(ohlc["open"], ohlc["close"]), max(ohlc["open"], ohlc["close"])
+
+
+def _price_is_visible(price: float, visible_low: float, visible_high: float) -> bool:
+    return visible_low <= price <= visible_high
+
+
+def _feature_x(feature_df: pd.DataFrame) -> list[float]:
+    if "_x" in feature_df.columns:
+        return feature_df["_x"].tolist()
+    return list(range(len(feature_df)))
 
 
 def _add_poc_drift_trace(
@@ -145,11 +160,32 @@ def _add_poc_drift_trace(
     if not features_config.enable_poc_drift_line:
         return
 
+    x_values = _feature_x(feature_df)
+    x_trace: list[float | None] = []
+    y_trace: list[float | None] = []
+    for row_number, (_, row) in enumerate(feature_df.iterrows()):
+        should_break = bool(row.get("poc_is_ambiguous", False))
+        should_break = should_break or not bool(row.get("poc_render_visible", True))
+        if rendering_config.break_poc_drift_on_gaps:
+            should_break = should_break or bool(row.get("session_gap", False))
+
+        if should_break:
+            if x_trace and x_trace[-1] is not None:
+                x_trace.append(None)
+                y_trace.append(None)
+            continue
+
+        x_trace.append(float(x_values[row_number]))
+        y_trace.append(float(row["poc_price"]))
+
+    if not any(y is not None for y in y_trace):
+        return
+
     style = rendering_config.overlay_style
     fig.add_trace(
         go.Scatter(
-            x=list(range(len(feature_df))),
-            y=feature_df["poc_price"],
+            x=x_trace,
+            y=y_trace,
             mode="lines",
             line={"color": style.poc_color, "width": 2, "dash": style.poc_drift_dash},
             name="POC drift",
@@ -166,8 +202,17 @@ def _add_indecision_flags(
     if not features_config.enable_indecision_flags or feature_df.empty:
         return
 
-    threshold = feature_df["concentration_ratio"].quantile(features_config.indecision_quantile)
-    flagged = feature_df[feature_df["concentration_ratio"] <= threshold]
+    if "indecision_flag" in feature_df.columns:
+        flagged = feature_df[feature_df["indecision_flag"].astype(bool)]
+    else:
+        if len(feature_df) < features_config.indecision_min_samples:
+            return
+        if feature_df["concentration_ratio"].nunique(dropna=True) <= 1:
+            return
+        threshold = feature_df["concentration_ratio"].quantile(
+            features_config.indecision_quantile,
+        )
+        flagged = feature_df[feature_df["concentration_ratio"] <= threshold]
     if flagged.empty:
         return
 
@@ -176,7 +221,7 @@ def _add_indecision_flags(
     style = rendering_config.overlay_style
     fig.add_trace(
         go.Scatter(
-            x=flagged.index.tolist(),
+            x=_feature_x(flagged),
             y=(flagged["high"] + y_offset).tolist(),
             mode="markers",
             marker={
@@ -185,6 +230,39 @@ def _add_indecision_flags(
                 "size": style.indecision_size,
             },
             name="Indecision",
+        ),
+    )
+
+
+def _add_session_gap_trace(
+    fig: go.Figure,
+    feature_df: pd.DataFrame,
+    rendering_config: RenderingConfig,
+) -> None:
+    if not rendering_config.show_session_gaps or "session_gap" not in feature_df.columns:
+        return
+
+    gap_rows = feature_df[feature_df["session_gap"].astype(bool)]
+    if gap_rows.empty:
+        return
+
+    low = float(feature_df["low"].min())
+    high = float(feature_df["high"].max())
+    x_trace: list[float | None] = []
+    y_trace: list[float | None] = []
+    for x_value in _feature_x(gap_rows):
+        gap_x = float(x_value) - 0.5
+        x_trace.extend([gap_x, gap_x, None])
+        y_trace.extend([low, high, None])
+
+    fig.add_trace(
+        go.Scatter(
+            x=x_trace,
+            y=y_trace,
+            mode="lines",
+            line={"color": "rgba(180, 180, 180, 0.55)", "width": 1, "dash": "dash"},
+            name="Session gap",
+            hoverinfo="none",
         ),
     )
 
@@ -200,9 +278,10 @@ def build_heatmap_chart(
     try:
         fig = go.Figure()
 
+        x_positions = list(range(len(feature_df)))
         fig.add_trace(
             go.Scatter(
-                x=list(range(len(feature_df))),
+                x=x_positions,
                 y=feature_df["high"].tolist(),
                 mode="markers",
                 marker={"color": "rgba(0,0,0,0)"},
@@ -212,7 +291,7 @@ def build_heatmap_chart(
         )
         fig.add_trace(
             go.Scatter(
-                x=list(range(len(feature_df))),
+                x=x_positions,
                 y=feature_df["low"].tolist(),
                 mode="markers",
                 marker={"color": "rgba(0,0,0,0)"},
@@ -222,18 +301,20 @@ def build_heatmap_chart(
         )
 
         half_width = rendering_config.overlay_style.candle_half_width
-        density_cols = [c for c in feature_df.columns if c.startswith("density_")]
+        density_cols = sorted(c for c in feature_df.columns if c.startswith("density_"))
 
-        poc_x = []
-        poc_y = []
-        va_x = []
-        va_y = []
-        
-        heatmap_x = []
-        heatmap_y = []
-        heatmap_base = []
-        heatmap_width = []
-        heatmap_colors = []
+        poc_x: list[float | None] = []
+        poc_y: list[float | None] = []
+        poc_text: list[str | None] = []
+        poc_visible_flags: list[bool] = []
+        va_x: list[float | None] = []
+        va_y: list[float | None] = []
+
+        heatmap_x: list[float] = []
+        heatmap_y: list[float] = []
+        heatmap_base: list[float] = []
+        heatmap_width: list[float] = []
+        heatmap_colors: list[str] = []
 
         for i, row in feature_df.reset_index(drop=True).iterrows():
             ohlc = {
@@ -246,21 +327,53 @@ def build_heatmap_chart(
             bins = np.linspace(ohlc["low"], ohlc["high"], len(density) + 1)
 
             render_heatmap_candle(
-                fig, i, ohlc, density, bins, half_width, rendering_config,
-                heatmap_x, heatmap_y, heatmap_base, heatmap_width, heatmap_colors
+                fig,
+                i,
+                ohlc,
+                density,
+                bins,
+                half_width,
+                rendering_config,
+                heatmap_x,
+                heatmap_y,
+                heatmap_base,
+                heatmap_width,
+                heatmap_colors,
             )
 
+            visible_low, visible_high = _visible_density_range(ohlc, rendering_config)
+            poc_price = float(row["poc_price"])
+            poc_visible = _price_is_visible(poc_price, visible_low, visible_high)
+            poc_render_visible = (
+                poc_visible or not rendering_config.align_overlays_to_visible_heatmap
+            )
+            poc_visible_flags.append(poc_render_visible)
+
             if features_config.enable_poc_marker:
-                poc_x.extend([i - half_width, i + half_width, None])
-                poc_y.extend([row["poc_price"], row["poc_price"], None])
+                if poc_render_visible:
+                    confidence = float(row.get("poc_confidence", 0.0))
+                    warning = row.get("profile_warning", "")
+                    text = (
+                        f"POC: {poc_price:.6g}<br>"
+                        f"Confidence: {confidence:.2f}<br>"
+                        f"Warnings: {warning}"
+                    )
+                    poc_x.extend([i - half_width, i + half_width, None])
+                    poc_y.extend([poc_price, poc_price, None])
+                    poc_text.extend([text, text, None])
 
             if features_config.enable_value_area:
                 x0 = i - half_width
                 x1 = i + half_width
-                y0 = row["value_area_low"]
-                y1 = row["value_area_high"]
-                va_x.extend([x0, x1, x1, x0, x0, None])
-                va_y.extend([y0, y0, y1, y1, y0, None])
+                y0 = float(row["value_area_low"])
+                y1 = float(row["value_area_high"])
+                va_visible = visible_low <= y0 <= y1 <= visible_high
+                va_render_visible = (
+                    va_visible or not rendering_config.align_overlays_to_visible_heatmap
+                )
+                if va_render_visible:
+                    va_x.extend([x0, x1, x1, x0, x0, None])
+                    va_y.extend([y0, y0, y1, y1, y0, None])
 
         # Add the density profile heatmap as a single toggleable Bar trace
         if heatmap_x:
@@ -298,7 +411,7 @@ def build_heatmap_chart(
                 )
             )
 
-        if features_config.enable_value_area and len(feature_df) > 0:
+        if features_config.enable_value_area and va_x:
             fig.add_trace(
                 go.Scatter(
                     x=va_x,
@@ -316,22 +429,26 @@ def build_heatmap_chart(
                 )
             )
 
-        if features_config.enable_poc_marker and len(feature_df) > 0:
+        if features_config.enable_poc_marker and poc_x:
             fig.add_trace(
                 go.Scatter(
                     x=poc_x,
                     y=poc_y,
+                    text=poc_text,
                     mode="lines",
                     line={
                         "color": rendering_config.overlay_style.poc_color,
                         "width": rendering_config.overlay_style.poc_width,
                     },
                     name="POC marker",
-                    hoverinfo="none",
+                    hovertemplate="%{text}<extra></extra>",
                 )
             )
 
         normalized_feature_df = feature_df.reset_index(drop=True)
+        normalized_feature_df["_x"] = x_positions
+        normalized_feature_df["poc_render_visible"] = poc_visible_flags
+        _add_session_gap_trace(fig, normalized_feature_df, rendering_config)
         _add_poc_drift_trace(fig, normalized_feature_df, features_config, rendering_config)
         _add_indecision_flags(fig, normalized_feature_df, features_config, rendering_config)
 
@@ -340,7 +457,7 @@ def build_heatmap_chart(
             xaxis_title="Bar Index",
             yaxis_title="Price",
             template="plotly_dark",
-            barmode="overlay", # Prevent horizontal shifting of bars when multiple Bar traces exist
+            barmode="overlay",
             showlegend=rendering_config.legend.enabled,
             legend=_legend_position(rendering_config.legend.position),
             margin={"r": 140 if rendering_config.legend.position.endswith("right") else 40},

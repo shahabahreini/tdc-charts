@@ -21,6 +21,12 @@ class DataConfig(BaseModel):
     ticker: str = Field(..., description="Yahoo Finance ticker symbol (e.g. AAPL)")
     interval: str = Field(default="1d", description="Time interval (e.g. 1d, 1mo)")
     period: str = Field(default="1mo", description="Time period to fetch (e.g. 1mo, 1y)")
+    session_timezone: str = Field(default="America/New_York")
+    intrabar_path: str | None = Field(default=None)
+    intrabar_timestamp_col: str = Field(default="timestamp")
+    intrabar_price_col: str = Field(default="price")
+    intrabar_volume_col: str = Field(default="volume")
+    intrabar_bar_id_col: str = Field(default="bar_id")
 
 
 class AlgorithmConfig(BaseModel):
@@ -29,7 +35,13 @@ class AlgorithmConfig(BaseModel):
     volatility_factor: float = Field(default=0.03, ge=0.0)
     enable_volume_weighting: bool = Field(default=False)
     synthetic_tick_count: int = Field(default=100, ge=4)
+    synthetic_ensemble_size: int = Field(default=1, ge=1)
+    synthetic_model: Literal["ohlc_bridge"] = Field(default="ohlc_bridge")
     random_seed: int | None = Field(default=None)
+    value_area_ratio: float = Field(default=0.68, gt=0.0, le=1.0)
+    poc_tie_policy: Literal["first", "midpoint", "centroid", "ambiguous"] = Field(
+        default="midpoint",
+    )
 
 
 class FeaturesConfig(BaseModel):
@@ -42,6 +54,7 @@ class FeaturesConfig(BaseModel):
     concentration_ratio_flagging: bool | None = Field(default=None, exclude=True)
     enable_indecision_flags: bool = Field(default=True)
     indecision_quantile: float = Field(default=0.25, ge=0.0, le=1.0)
+    indecision_min_samples: int = Field(default=20, ge=1)
 
     @model_validator(mode="before")
     @classmethod
@@ -102,8 +115,11 @@ class RenderingConfig(BaseModel):
     )
     extend_to_tails: bool = Field(
         default=False,
-        description="Extend the density heatmap over the candle tails/wicks with a narrower width",
+        description="Extend the density heatmap over candle tails/wicks with a narrow width",
     )
+    align_overlays_to_visible_heatmap: bool = Field(default=True)
+    show_session_gaps: bool = Field(default=True)
+    break_poc_drift_on_gaps: bool = Field(default=True)
     color_scheme: ColorScheme = Field(default_factory=ColorScheme)
     overlay_style: OverlayStyle = Field(default_factory=OverlayStyle)
     legend: LegendConfig = Field(default_factory=LegendConfig)

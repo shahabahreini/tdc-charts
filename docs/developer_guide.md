@@ -4,22 +4,27 @@
 
 1. [Architecture](#architecture)
 2. [Module Layout](#module-layout)
-3. [Configuration Flow](#configuration-flow)
-4. [Chart Rendering](#chart-rendering)
-5. [Quality Checks](#quality-checks)
-6. [Release Workflow](#release-workflow)
+3. [Feature Pipeline](#feature-pipeline)
+4. [Validation Rules](#validation-rules)
+5. [Rendering Rules](#rendering-rules)
+6. [Quality Checks](#quality-checks)
+7. [Release Workflow](#release-workflow)
 
 ## Architecture
 
-TDC uses a `src/` package layout and keeps the pipeline split by responsibility.
+TDC uses a `src/` package layout. The feature pipeline is intentionally separate
+from rendering so exported tables and charts share the same definitions.
 
 - `config.py` validates YAML with Pydantic models.
-- `data.py` fetches Yahoo Finance OHLCV data and normalizes columns.
-- `simulate.py` creates constrained synthetic intrabar paths.
-- `density.py` computes normalized density vectors and profile statistics.
-- `render.py` builds Plotly charts and feature overlays.
+- `data.py` fetches and cleans parent OHLCV bars.
+- `intrabar.py` loads and maps real intrabar CSV/Parquet rows.
+- `simulate.py` creates OHLC-constrained synthetic bridge paths.
+- `density.py` computes density, POC, Value Area, and profile shape metrics.
+- `features.py` builds export-ready feature frames.
+- `render.py` builds Plotly charts from feature frames.
 - `export.py` writes feature artifacts.
 - `main.py` orchestrates CLI execution.
+- `versioning.py` provides `uv run bump patch|minor|major`.
 
 ## Module Layout
 
@@ -36,31 +41,44 @@ tdc-charts/
     ├── density.py
     ├── exceptions.py
     ├── export.py
+    ├── features.py
+    ├── intrabar.py
     ├── logger.py
     ├── main.py
     ├── render.py
-    └── simulate.py
+    ├── simulate.py
+    └── versioning.py
 ```
 
-## Configuration Flow
+## Feature Pipeline
 
-The CLI loads `tdc.yaml` once at startup, validates it with Pydantic, then applies the configured logging level. Runtime behavior should be driven through config keys instead of hardcoded values.
+`build_feature_frame` is the single source of truth for exported indicators.
+It validates each OHLC row, obtains either synthetic or real intrabar arrays,
+computes the density profile, adds POC/Value Area statistics, then appends
+drift, gap, confidence, and indecision fields.
 
-Legacy feature keys are still accepted:
+Rendering should consume existing fields such as `indecision_flag`,
+`poc_is_ambiguous`, and `session_gap`. It should not redefine those indicators.
 
-- `enable_poc_overlay` maps to POC marker and POC drift toggles.
-- `concentration_ratio_flagging` maps to indecision flags.
+## Validation Rules
 
-## Chart Rendering
+Density inputs fail fast when:
 
-The chart uses Plotly shapes for candle bodies, wicks, POC ticks, and Value Area boxes. It uses Plotly traces for legend entries, POC drift, and indecision markers.
+- OHLC values are non-finite or internally inconsistent.
+- Ticks are empty, non-finite, or outside the parent low/high range.
+- Volume weights are non-finite, negative, or a different length than ticks.
+- Density arrays or bins are malformed.
 
-Overlay behavior:
+Flat bars are valid. Their POC and Value Area remain exactly at the flat price
+instead of using artificial price extensions.
 
-- POC marker: gold horizontal line per candle.
-- POC drift: dashed gold line through POC prices.
-- Value Area: dotted blue rectangle around the contiguous 68% density zone.
-- Indecision: purple triangle above candles in the bottom concentration-ratio quantile.
+## Rendering Rules
+
+The renderer hides POC and Value Area overlays that fall outside the visible
+heatmap range when `align_overlays_to_visible_heatmap` is enabled. POC drift
+breaks across ambiguous POC points, hidden POCs, and session gaps.
+
+Session gaps are visual markers derived from exported `session_gap` values.
 
 ## Quality Checks
 
@@ -72,16 +90,19 @@ uv run pytest
 uv build
 ```
 
-Tests cover config compatibility, simulation validation, density math, rendering overlays, and export behavior.
+Tests cover config compatibility, simulation validation, density invariants,
+real intrabar mapping, feature exports, rendering overlays, and export behavior.
 
 ## Release Workflow
 
-Use uv to bump versions:
+Use the bump command:
 
 ```bash
-uv version --bump patch
-uv version --bump minor
-uv version --bump major
+uv run bump patch
+uv run bump minor
+uv run bump major
 ```
 
-Ruff runs in GitHub Actions for changes targeting `main`. Tags matching `v*.*.*` build a wheel and publish a GitHub Release when the tagged commit is on `main`.
+Ruff runs in GitHub Actions for changes targeting `main`. Tags matching
+`v*.*.*` build a wheel and publish a GitHub Release when the tagged commit is
+reachable from `main`.

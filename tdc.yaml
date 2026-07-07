@@ -6,15 +6,25 @@ app:
 data:
   ticker: "AAPL"
   interval: "1d"
-  period: "1mo"
+  period: "12mo"
+  session_timezone: "America/New_York"
+  intrabar_path: null
+  intrabar_timestamp_col: "timestamp"
+  intrabar_price_col: "price"
+  intrabar_volume_col: "volume"
+  intrabar_bar_id_col: "bar_id"
 
 algorithm:
-  mode: "synthetic" # 'synthetic' or 'real'
+  mode: "real" # 'synthetic' or 'real'
   nbins: 20
   volatility_factor: 0.03
   enable_volume_weighting: false
   synthetic_tick_count: 100
+  synthetic_ensemble_size: 1
+  synthetic_model: "ohlc_bridge"
   random_seed: 42
+  value_area_ratio: 0.68
+  poc_tie_policy: "midpoint"
 
 features:
   export_csv: true
@@ -27,11 +37,15 @@ features:
   concentration_ratio_flagging: true
   enable_indecision_flags: true
   indecision_quantile: 0.25
+  indecision_min_samples: 20
 
 rendering:
   enable_chart: true
   full_heatmap: true
   extend_to_tails: false
+  align_overlays_to_visible_heatmap: true
+  show_session_gaps: true
+  break_poc_drift_on_gaps: true
   color_scheme:
     bull: "rgba(38, 166, 154, {alpha})"
     bear: "rgba(239, 83, 80, {alpha})"

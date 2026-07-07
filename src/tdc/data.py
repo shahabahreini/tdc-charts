@@ -52,12 +52,14 @@ def get_data(config: DataConfig, enable_volume_weighting: bool = False) -> pd.Da
             f"'Volume' column missing for {config.ticker}. Falling back to unweighted density.",
         )
 
-    # Handle NaNs gracefully
-    if df.isnull().values.any():
-        logger.warning("Data contains NaN values. Forward filling...")
-        df = df.ffill().dropna()
+    if df[required_cols].isnull().values.any():
+        logger.warning("Data contains missing OHLC values. Dropping incomplete bars.")
+        df = df.dropna(subset=required_cols)
         if df.empty:
-            raise DataFetchError("Data is empty after dropping remaining NaNs.")
+            raise DataFetchError("Data is empty after dropping incomplete OHLC bars.")
+
+    if "Volume" in df.columns and df["Volume"].isnull().any():
+        logger.warning("Volume contains missing values. Leaving affected rows unweighted.")
 
     # Rename columns to lowercase for consistency with the rest of the project
     df = df.rename(

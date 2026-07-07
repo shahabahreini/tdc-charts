@@ -17,6 +17,11 @@ def _feature_df() -> pd.DataFrame:
             "value_area_low": [10.0, 10.8, 9.8, 10.0],
             "value_area_high": [11.0, 11.8, 10.8, 10.6],
             "concentration_ratio": [1.8, 1.1, 2.2, 0.8],
+            "poc_confidence": [0.8, 0.7, 0.9, 0.6],
+            "poc_is_ambiguous": [False, False, False, False],
+            "profile_warning": ["", "", "", ""],
+            "indecision_flag": [False, True, False, False],
+            "session_gap": [False, False, True, False],
         },
     )
 
