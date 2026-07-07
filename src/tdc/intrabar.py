@@ -1,10 +1,148 @@
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
 
 from .config import DataConfig
+from .data import fetch_yf_data, normalize_yf_ohlcv
 from .exceptions import AlgorithmError, DataFetchError
+from .logger import logger
+
+_INTRADAY_LIMIT_DAYS = {
+    "1m": 7,
+    "2m": 60,
+    "5m": 60,
+    "15m": 60,
+    "30m": 60,
+    "60m": 60,
+    "90m": 60,
+    "1h": 60,
+}
+
+_REGULAR_SESSION_OPEN = "09:30"
+_REGULAR_SESSION_CLOSE = "16:00"
+
+
+def _period_to_days(period: str) -> int:
+    value = period.strip().lower()
+    try:
+        if value.endswith("d"):
+            return int(value[:-1])
+        if value.endswith("wk"):
+            return int(value[:-2]) * 7
+        if value.endswith("mo"):
+            return int(value[:-2]) * 31
+        if value.endswith("y"):
+            return int(value[:-1]) * 366
+    except ValueError as exc:
+        raise DataFetchError(f"Invalid Yahoo intraday period: {period}") from exc
+    raise DataFetchError(
+        "Yahoo intraday real mode requires a bounded period such as '7d' or '60d'.",
+    )
+
+
+def validate_yahoo_intraday_request(config: DataConfig) -> None:
+    interval = config.intrabar_interval.lower()
+    if config.interval != "1d":
+        raise DataFetchError("Yahoo real mode currently supports parent interval='1d' only.")
+    if interval not in _INTRADAY_LIMIT_DAYS:
+        allowed = ", ".join(sorted(_INTRADAY_LIMIT_DAYS))
+        raise DataFetchError(
+            f"Unsupported Yahoo intraday interval '{interval}'. Use one of: {allowed}.",
+        )
+
+    period_days = _period_to_days(config.period)
+    max_days = _INTRADAY_LIMIT_DAYS[interval]
+    if period_days > max_days:
+        raise DataFetchError(
+            f"Yahoo intraday interval '{interval}' supports at most {max_days} days. "
+            f"Configured data.period is '{config.period}'. Use '{max_days}d' or a shorter period.",
+        )
+
+
+def _localize_timestamps(timestamps: pd.Series, timezone_name: str) -> pd.Series:
+    timezone = ZoneInfo(timezone_name)
+    parsed = pd.to_datetime(timestamps, errors="coerce")
+    if parsed.isna().any():
+        raise DataFetchError("Yahoo intraday data contains invalid timestamps.")
+
+    if parsed.dt.tz is None:
+        return parsed.dt.tz_localize(timezone)
+    return parsed.dt.tz_convert(timezone)
+
+
+def _prepare_yahoo_intrabar(config: DataConfig, raw_df: pd.DataFrame) -> pd.DataFrame:
+    intrabar = normalize_yf_ohlcv(raw_df, config.ticker).copy()
+    if "timestamp" not in intrabar.columns:
+        raise DataFetchError("Yahoo intraday response has no timestamp index or column.")
+
+    intrabar["timestamp"] = _localize_timestamps(
+        intrabar["timestamp"],
+        config.session_timezone,
+    )
+    if not config.include_extended_hours:
+        timestamps = intrabar["timestamp"].dt.strftime("%H:%M")
+        intrabar = intrabar[
+            (timestamps >= _REGULAR_SESSION_OPEN) & (timestamps < _REGULAR_SESSION_CLOSE)
+        ]
+        if intrabar.empty:
+            raise DataFetchError("Yahoo intraday data is empty after regular-session filtering.")
+
+    intrabar["price"] = (intrabar["high"] + intrabar["low"] + intrabar["close"]) / 3
+    intrabar["session_date"] = intrabar["timestamp"].dt.date
+    return intrabar.sort_values("timestamp").reset_index(drop=True)
+
+
+def _build_parent_bars_from_intrabar(
+    intrabar: pd.DataFrame,
+    config: DataConfig,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    aggregation = {
+        "timestamp": "first",
+        "open": "first",
+        "high": "max",
+        "low": "min",
+        "close": "last",
+    }
+    if "volume" in intrabar.columns:
+        aggregation["volume"] = "sum"
+
+    parent = intrabar.groupby("session_date", sort=True).agg(aggregation).reset_index()
+    if parent.empty:
+        raise DataFetchError("No parent bars could be built from Yahoo intraday data.")
+
+    timezone = ZoneInfo(config.session_timezone)
+    parent["timestamp"] = pd.to_datetime(parent["timestamp"]).dt.normalize().dt.tz_convert(timezone)
+    parent["bar_id"] = range(len(parent))
+
+    date_to_bar_id = dict(zip(parent["session_date"], parent["bar_id"], strict=True))
+    intrabar["bar_id"] = intrabar["session_date"].map(date_to_bar_id)
+    intrabar = intrabar.drop(columns=["session_date"])
+    parent = parent.drop(columns=["session_date"])
+    return parent.reset_index(drop=True), intrabar.reset_index(drop=True)
+
+
+def fetch_yahoo_intrabar_bars(config: DataConfig) -> tuple[pd.DataFrame, pd.DataFrame]:
+    validate_yahoo_intraday_request(config)
+    raw_df = fetch_yf_data(
+        config.ticker,
+        config.intrabar_interval,
+        config.period,
+        prepost=config.include_extended_hours,
+    )
+    intrabar = _prepare_yahoo_intrabar(config, raw_df)
+    parent, intrabar = _build_parent_bars_from_intrabar(intrabar, config)
+    intrabar.attrs["profile_source"] = "real_yahoo_intraday"
+    intrabar.attrs["volume_mode"] = "real_subbar"
+    intrabar.attrs["profile_warning"] = "subbar_ohlcv_not_tick_data"
+    logger.info(
+        "Built %s parent bars from %s Yahoo %s intraday rows.",
+        len(parent),
+        len(intrabar),
+        config.intrabar_interval,
+    )
+    return parent, intrabar
 
 
 def load_intrabar_data(config: DataConfig) -> pd.DataFrame:
@@ -89,4 +227,6 @@ def extract_intrabar_arrays(
     volume = intrabar_slice[config.intrabar_volume_col].to_numpy(dtype=float)
     if np.isnan(volume).any():
         return prices, None
+    if np.any(volume < 0):
+        raise AlgorithmError("Intrabar volume must not be negative")
     return prices, volume

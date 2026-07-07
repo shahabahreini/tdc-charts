@@ -17,7 +17,7 @@ from rendering so exported tables and charts share the same definitions.
 
 - `config.py` validates YAML with Pydantic models.
 - `data.py` fetches and cleans parent OHLCV bars.
-- `intrabar.py` loads and maps real intrabar CSV/Parquet rows.
+- `intrabar.py` fetches Yahoo intraday rows and loads local CSV/Parquet rows.
 - `simulate.py` creates OHLC-constrained synthetic bridge paths.
 - `density.py` computes density, POC, Value Area, and profile shape metrics.
 - `features.py` builds export-ready feature frames.
@@ -55,7 +55,9 @@ tdc-charts/
 `build_feature_frame` is the single source of truth for exported indicators.
 It validates each OHLC row, obtains either synthetic or real intrabar arrays,
 computes the density profile, adds POC/Value Area statistics, then appends
-drift, gap, confidence, and indecision fields.
+drift, gap, confidence, and indecision fields. In Yahoo real mode, `main.py`
+fetches subbar intraday rows first and passes both parent bars and intrabar
+rows into the feature builder.
 
 Rendering should consume existing fields such as `indecision_flag`,
 `poc_is_ambiguous`, and `session_gap`. It should not redefine those indicators.

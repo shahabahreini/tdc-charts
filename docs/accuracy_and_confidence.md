@@ -17,9 +17,15 @@ profile estimated from OHLC alone.
 
 ## Source Levels
 
-`profile_source` identifies whether a row came from `real` intrabar data or a
-`synthetic` OHLC bridge. `volume_mode` identifies whether volume weighting was
-real, synthetic-even, or unavailable.
+`profile_source` identifies whether a row came from Yahoo real intraday data,
+file-based real intrabar data, or a `synthetic` OHLC bridge. `volume_mode`
+identifies whether volume weighting was subbar real, file real, synthetic-even,
+or unavailable.
+
+Yahoo real mode is based on fetched subbar OHLCV rows, not tick-level trade
+prints. The default uses 5-minute regular-session rows for the last 60 days.
+Those rows are real market data, but their representative density price is a
+subbar typical price, so exports include `subbar_ohlcv_not_tick_data`.
 
 Synthetic-even volume does not add intrabar volume information. It is exported
 only so downstream users can identify that the total bar volume was spread

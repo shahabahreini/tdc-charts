@@ -7,6 +7,7 @@ from .data import get_data
 from .exceptions import TDCBaseError
 from .export import save_features
 from .features import build_feature_frame
+from .intrabar import fetch_yahoo_intrabar_bars
 from .logger import configure_logger, logger
 from .render import build_heatmap_chart
 
@@ -41,10 +42,14 @@ def main(config_path: str) -> None:
     config = load_config(config_path)
     configure_logger(debug=config.app.debug, level_name=config.app.log_level)
 
-    df = get_data(config.data, enable_volume_weighting=config.algorithm.enable_volume_weighting)
+    intrabar_df = None
+    if config.algorithm.mode == "real" and config.data.intrabar_source == "yahoo":
+        df, intrabar_df = fetch_yahoo_intrabar_bars(config.data)
+    else:
+        df = get_data(config.data, enable_volume_weighting=config.algorithm.enable_volume_weighting)
 
     logger.info("Processing bars to generate TimeDensityCandles...")
-    feature_df = build_feature_frame(df, config)
+    feature_df = build_feature_frame(df, config, intrabar_df)
 
     export_formats = list(config.features.export_formats)
     if not config.features.export_csv and "csv" in export_formats:

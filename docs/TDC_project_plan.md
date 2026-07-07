@@ -13,7 +13,7 @@ Build a Python library/script that transforms OHLC(V) bar data into **TimeDensit
 | In Scope | Out of Scope |
 |---|---|
 | Synthetic OHLC bridge estimation, constrained to O/H/L/C | Live/real-time streaming data |
-| Real intrabar CSV/Parquet mapping into higher-timeframe candles | Order-flow/bid-ask imbalance modeling |
+| Real Yahoo intraday and CSV/Parquet mapping into higher-timeframe candles | Order-flow/bid-ask imbalance modeling |
 | Static Plotly chart rendering (single + multi-candle) | Interactive/animated charts |
 | Structured feature export (CSV/Parquet) | Broker/exchange execution integration |
 
@@ -71,7 +71,9 @@ FUNCTION simulate_intrabar_ticks(open, high, low, close, n_ticks, seed) -> ndarr
 ```
 
 Used only when `mode='synthetic'`. When `mode='real'`, tick series is loaded
-from CSV/Parquet intrabar data and mapped by `bar_id` or timestamp windows.
+from Yahoo intraday data or CSV/Parquet intrabar data. Yahoo real mode defaults
+to 5-minute regular-session rows for the last 60 days and resamples those rows
+into parent daily candles.
 
 ### 4.2 Density Profile Computation
 
@@ -169,7 +171,7 @@ tdc/
 - **Implemented: Point of Control (POC) overlay**: explicit marker per candle, usable as a regression target.
 - **Implemented: Value Area shading**: highlight ~68% density-mass zone as a lighter overlay.
 - **Multi-resolution density channels**: generate `density_vector` at multiple `nbins` (10/20/40) as stacked channels for CNN multi-scale input.
-- **Implemented: Volume-weighted density**: real intrabar volume can weight profiles; synthetic volume is marked as even synthetic weighting.
+- **Implemented: Volume-weighted density**: Yahoo/file intrabar volume can weight profiles; synthetic volume is marked as even synthetic weighting.
 - **Implemented: POC drift feature**: bar-to-bar POC changes are exported and rendered with gap/ambiguity breaks.
 - **Implemented: Indecision flagging**: high entropy, low concentration, neutral-body bars are labeled after a minimum sample count.
 - **Image-native export**: render fixed-size image tensors per candle/window for direct input into YOLO-style detectors, consistent with existing CV pipeline.

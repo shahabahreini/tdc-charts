@@ -8,14 +8,20 @@ from .logger import logger
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10), reraise=True)
-def fetch_yf_data(ticker: str, interval: str, period: str) -> pd.DataFrame:
+def fetch_yf_data(
+    ticker: str,
+    interval: str,
+    period: str,
+    *,
+    prepost: bool = False,
+) -> pd.DataFrame:
     """
     Fetch data from Yahoo Finance with retry logic.
     """
     logger.debug(f"Fetching data for {ticker} (interval: {interval}, period: {period})")
     try:
         t = yf.Ticker(ticker)
-        df = t.history(interval=interval, period=period)
+        df = t.history(interval=interval, period=period, prepost=prepost)
     except Exception as e:
         raise DataFetchError(f"Network or yfinance error while fetching {ticker}: {e}") from e
     
@@ -23,6 +29,39 @@ def fetch_yf_data(ticker: str, interval: str, period: str) -> pd.DataFrame:
         raise DataFetchError(
             f"Yahoo Finance returned an empty dataframe for {ticker}. Check the ticker symbol.",
         )
+
+    return df
+
+
+def normalize_yf_ohlcv(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    required_cols = ["Open", "High", "Low", "Close"]
+    for col in required_cols:
+        if col not in df.columns:
+            logger.error(f"Missing required column '{col}' in data for {ticker}.")
+            raise DataFetchError(f"Missing required column: {col}")
+
+    if df[required_cols].isnull().values.any():
+        logger.warning("Data contains missing OHLC values. Dropping incomplete bars.")
+        df = df.dropna(subset=required_cols)
+        if df.empty:
+            raise DataFetchError("Data is empty after dropping incomplete OHLC bars.")
+
+    if "Volume" in df.columns and df["Volume"].isnull().any():
+        logger.warning("Volume contains missing values. Leaving affected rows unweighted.")
+
+    df = df.rename(
+        columns={
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Close": "close",
+            "Volume": "volume",
+        },
+    )
+
+    if df.index.name in ["Date", "Datetime"]:
+        df = df.reset_index()
+        df = df.rename(columns={"Date": "timestamp", "Datetime": "timestamp"})
 
     return df
 
@@ -40,42 +79,12 @@ def get_data(config: DataConfig, enable_volume_weighting: bool = False) -> pd.Da
         logger.error(f"Failed to retrieve data for {config.ticker}: {e}")
         raise DataFetchError(f"Failed to retrieve data for ticker '{config.ticker}': {e}") from e
 
-    # Ensure standard OHLC columns exist
-    required_cols = ["Open", "High", "Low", "Close"]
-    for col in required_cols:
-        if col not in df.columns:
-            logger.error(f"Missing required column '{col}' in data for {config.ticker}.")
-            raise DataFetchError(f"Missing required column: {col}")
-
     if enable_volume_weighting and "Volume" not in df.columns:
         logger.warning(
             f"'Volume' column missing for {config.ticker}. Falling back to unweighted density.",
         )
 
-    if df[required_cols].isnull().values.any():
-        logger.warning("Data contains missing OHLC values. Dropping incomplete bars.")
-        df = df.dropna(subset=required_cols)
-        if df.empty:
-            raise DataFetchError("Data is empty after dropping incomplete OHLC bars.")
-
-    if "Volume" in df.columns and df["Volume"].isnull().any():
-        logger.warning("Volume contains missing values. Leaving affected rows unweighted.")
-
-    # Rename columns to lowercase for consistency with the rest of the project
-    df = df.rename(
-        columns={
-            "Open": "open",
-            "High": "high",
-            "Low": "low",
-            "Close": "close",
-            "Volume": "volume",
-        },
-    )
-
-    # Reset index to make timestamp a column if it is the index
-    if df.index.name in ["Date", "Datetime"]:
-        df = df.reset_index()
-        df = df.rename(columns={"Date": "timestamp", "Datetime": "timestamp"})
+    df = normalize_yf_ohlcv(df, config.ticker)
 
     logger.info(f"Successfully fetched {len(df)} bars for {config.ticker}")
     return df

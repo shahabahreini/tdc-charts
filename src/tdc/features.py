@@ -162,7 +162,8 @@ def _add_confidence_features(feature_df: pd.DataFrame, config: TDCConfig) -> pd.
         1.0,
         feature_df["tick_count"] / max(config.algorithm.nbins * 5, 1),
     )
-    source_base = np.where(feature_df["profile_source"] == "real", 0.9, 0.48)
+    real_source = feature_df["profile_source"].astype(str).str.startswith("real")
+    source_base = np.where(real_source, 0.9, 0.48)
     shape_confidence = (
         feature_df["poc_confidence"].astype(float)
         + feature_df["value_area_confidence"].astype(float)
@@ -260,8 +261,13 @@ def _add_indecision_features(feature_df: pd.DataFrame, config: TDCConfig) -> pd.
     return feature_df
 
 
-def build_feature_frame(df: pd.DataFrame, config: TDCConfig) -> pd.DataFrame:
-    intrabar_df = load_intrabar_data(config.data) if config.algorithm.mode == "real" else None
+def build_feature_frame(
+    df: pd.DataFrame,
+    config: TDCConfig,
+    intrabar_df: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    if config.algorithm.mode == "real" and intrabar_df is None:
+        intrabar_df = load_intrabar_data(config.data)
     feature_rows: list[dict[str, object]] = []
     timestamps = pd.to_datetime(df.get("timestamp"), errors="coerce") if "timestamp" in df else None
 
@@ -297,8 +303,13 @@ def build_feature_frame(df: pd.DataFrame, config: TDCConfig) -> pd.DataFrame:
                 config.data,
                 config.algorithm.enable_volume_weighting,
             )
-            volume_mode = "real" if volume is not None else "none"
-            profile_source = "real"
+            warning = intrabar_df.attrs.get("profile_warning", "")
+            if warning:
+                warnings.append(str(warning))
+            volume_mode = "none"
+            if volume is not None:
+                volume_mode = str(intrabar_df.attrs.get("volume_mode", "real"))
+            profile_source = str(intrabar_df.attrs.get("profile_source", "real"))
 
         feature_rows.append(
             _build_bar_features(

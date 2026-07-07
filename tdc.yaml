@@ -6,8 +6,11 @@ app:
 data:
   ticker: "AAPL"
   interval: "1d"
-  period: "12mo"
+  period: "60d"
   session_timezone: "America/New_York"
+  intrabar_source: "yahoo"
+  intrabar_interval: "5m"
+  include_extended_hours: false
   intrabar_path: null
   intrabar_timestamp_col: "timestamp"
   intrabar_price_col: "price"
@@ -18,7 +21,7 @@ algorithm:
   mode: "real" # 'synthetic' or 'real'
   nbins: 20
   volatility_factor: 0.03
-  enable_volume_weighting: false
+  enable_volume_weighting: true
   synthetic_tick_count: 100
   synthetic_ensemble_size: 1
   synthetic_model: "ohlc_bridge"

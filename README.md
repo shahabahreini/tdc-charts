@@ -33,7 +33,8 @@ profiles are estimates and are exported with confidence metadata and warnings.
 - Density heatmaps inside candle bodies or across the full high/low range.
 - POC marker and POC drift line with tie/ambiguity handling.
 - Value Area based on the smallest contiguous density range.
-- Real intrabar CSV/Parquet mode using `bar_id` or timestamp windows.
+- Real Yahoo intraday mode using 5-minute regular-session bars by default.
+- Real CSV/Parquet mode using `bar_id` or timestamp windows.
 - Synthetic OHLC bridge mode with optional ensemble sampling.
 - Exported confidence, warnings, entropy, HHI, drift, gap, and indecision fields.
 - Session-gap markers and drift breaks for discontinuous charts.
@@ -61,9 +62,9 @@ Use a different config file:
 uv run tdc --config custom_config.yaml
 ```
 
-If `algorithm.mode` is `real`, set `data.intrabar_path` to a CSV or Parquet
-file. If you only have Yahoo Finance OHLCV bars, set `algorithm.mode` to
-`synthetic`.
+The default config runs real mode with Yahoo 5-minute intraday bars for the
+last 60 days. Use a local CSV or Parquet file when you need tick-level or
+higher-quality intrabar data.
 
 ## Configuration
 
@@ -72,9 +73,12 @@ The app reads `tdc.yaml` by default.
 | Key | Purpose |
 |---|---|
 | `data.ticker` | Yahoo Finance ticker for parent OHLCV bars. |
-| `data.interval` / `data.period` | Yahoo Finance interval and lookback. |
+| `data.interval` / `data.period` | Parent interval and real-mode lookback. |
 | `data.session_timezone` | Market/session timezone used for documentation and gap context. |
-| `data.intrabar_path` | Real intrabar CSV/Parquet file for `mode: real`. |
+| `data.intrabar_source` | `yahoo` for automatic intraday fetch or `file` for local data. |
+| `data.intrabar_interval` | Yahoo intraday interval, default `5m`. |
+| `data.include_extended_hours` | Include pre/post-market data when using Yahoo intraday. |
+| `data.intrabar_path` | Local intrabar CSV/Parquet path when `intrabar_source: file`. |
 | `data.intrabar_*_col` | Column names for timestamp, price, volume, and parent `bar_id`. |
 | `algorithm.mode` | `synthetic` or `real`. |
 | `algorithm.nbins` | Number of density price bins per bar. |
@@ -111,10 +115,10 @@ Feature exports include:
 
 ## Accuracy and Confidence
 
-Real mode uses the provided intrabar prices and optional trade/subbar volume.
-Synthetic mode uses OHLC-constrained bridge paths. Synthetic output is useful
-for visualization and research, but it is not evidence of true liquidity or
-executed volume distribution.
+Default real mode uses Yahoo subbar OHLCV data, filtered to regular market
+hours. It is more faithful than synthetic reconstruction, but it is still not
+tick-level order flow. Synthetic mode uses OHLC-constrained bridge paths and is
+not evidence of true liquidity or executed volume distribution.
 
 TDC therefore exports confidence and warning fields. Low-confidence cases
 include synthetic-only profiles, tied POCs, ambiguous Value Areas, degenerate

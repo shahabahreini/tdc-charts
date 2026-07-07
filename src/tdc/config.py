@@ -20,8 +20,11 @@ class AppConfig(BaseModel):
 class DataConfig(BaseModel):
     ticker: str = Field(..., description="Yahoo Finance ticker symbol (e.g. AAPL)")
     interval: str = Field(default="1d", description="Time interval (e.g. 1d, 1mo)")
-    period: str = Field(default="1mo", description="Time period to fetch (e.g. 1mo, 1y)")
+    period: str = Field(default="60d", description="Time period to fetch (e.g. 60d, 1mo)")
     session_timezone: str = Field(default="America/New_York")
+    intrabar_source: Literal["yahoo", "file"] = Field(default="yahoo")
+    intrabar_interval: str = Field(default="5m")
+    include_extended_hours: bool = Field(default=False)
     intrabar_path: str | None = Field(default=None)
     intrabar_timestamp_col: str = Field(default="timestamp")
     intrabar_price_col: str = Field(default="price")
@@ -30,10 +33,10 @@ class DataConfig(BaseModel):
 
 
 class AlgorithmConfig(BaseModel):
-    mode: Literal["synthetic", "real"] = Field(default="synthetic")
+    mode: Literal["synthetic", "real"] = Field(default="real")
     nbins: int = Field(default=20, ge=1, description="Number of density bins")
     volatility_factor: float = Field(default=0.03, ge=0.0)
-    enable_volume_weighting: bool = Field(default=False)
+    enable_volume_weighting: bool = Field(default=True)
     synthetic_tick_count: int = Field(default=100, ge=4)
     synthetic_ensemble_size: int = Field(default=1, ge=1)
     synthetic_model: Literal["ohlc_bridge"] = Field(default="ohlc_bridge")

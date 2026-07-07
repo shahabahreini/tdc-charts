@@ -29,7 +29,12 @@ uv run tdc --config tdc.yaml
 bar. It is useful when only OHLCV data is available, but it is not real
 time-at-price evidence.
 
-`algorithm.mode: real` loads intrabar CSV or Parquet data from
+`algorithm.mode: real` uses `data.intrabar_source`. The default `yahoo` source
+fetches 5-minute intraday bars, filters to regular New York session hours, and
+builds daily parent candles from those same intraday rows. Yahoo intraday data
+is limited to recent history, so the default period is `60d`.
+
+`data.intrabar_source: file` loads intrabar CSV or Parquet data from
 `data.intrabar_path`. If the file has a `bar_id` column, TDC maps intrabar rows
 by parent bar index. Otherwise, it maps rows by timestamp windows between
 parent bars.
@@ -52,13 +57,16 @@ Required real-mode columns:
 | `app.log_level` | string | `INFO` | Console log level. |
 | `data.ticker` | string | `AAPL` | Yahoo Finance ticker. |
 | `data.interval` | string | `1d` | Yahoo Finance interval. |
-| `data.period` | string | `1mo` | Yahoo Finance lookback period. |
+| `data.period` | string | `60d` | Real-mode lookback period. |
 | `data.session_timezone` | string | `America/New_York` | Market/session timezone context. |
-| `data.intrabar_path` | string/null | `null` | CSV/Parquet source for real mode. |
-| `algorithm.mode` | string | `synthetic` | `synthetic` or `real`. |
+| `data.intrabar_source` | string | `yahoo` | `yahoo` auto-fetch or `file` input. |
+| `data.intrabar_interval` | string | `5m` | Yahoo intraday interval for real mode. |
+| `data.include_extended_hours` | bool | `false` | Include pre/post-market Yahoo rows. |
+| `data.intrabar_path` | string/null | `null` | CSV/Parquet source for file real mode. |
+| `algorithm.mode` | string | `real` | `synthetic` or `real`. |
 | `algorithm.nbins` | int | `20` | Number of density bins. |
 | `algorithm.volatility_factor` | float | `0.03` | Synthetic bridge noise scale. |
-| `algorithm.enable_volume_weighting` | bool | `false` | Uses weights when meaningful volume exists. |
+| `algorithm.enable_volume_weighting` | bool | `true` | Uses weights when meaningful volume exists. |
 | `algorithm.synthetic_tick_count` | int | `100` | Synthetic ticks per path. |
 | `algorithm.synthetic_ensemble_size` | int | `1` | Synthetic paths per bar. |
 | `algorithm.random_seed` | int/null | `null` | Base seed for repeatable synthetic output. |
@@ -104,8 +112,8 @@ indecision fields.
 
 Important confidence columns:
 
-- `profile_source`: `real` or `synthetic`.
-- `volume_mode`: `real`, `synthetic_even`, or `none`.
+- `profile_source`: `real_yahoo_intraday`, `real`, or `synthetic`.
+- `volume_mode`: `real_subbar`, `real`, `synthetic_even`, or `none`.
 - `profile_confidence`: numeric score from `0` to `1`.
 - `confidence_level`: `low`, `medium`, or `high`.
 - `profile_warning`: semicolon-separated warnings.
@@ -116,6 +124,9 @@ Synthetic mode remains an estimate. It uses OHLC-anchored bridge paths and can
 use ensembles, but it cannot reconstruct real order flow or true intrabar
 liquidity.
 
-Real mode depends on the quality of the supplied intrabar file. Prices outside
-the parent OHLC range, invalid weights, and missing intrabar rows fail fast
-instead of silently producing misleading profiles.
+Yahoo real mode uses subbar OHLCV, not tick-level trade prints. It is accurate
+to the fetched interval and is marked with `subbar_ohlcv_not_tick_data`.
+
+File real mode depends on the quality of the supplied intrabar file. Prices
+outside the parent OHLC range, invalid weights, and missing intrabar rows fail
+fast instead of silently producing misleading profiles.
