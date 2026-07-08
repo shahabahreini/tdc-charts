@@ -11,7 +11,7 @@ TDC is designed for technical analysis, market research, and **Machine Learning 
 
 ---
 
-## 📸 Interactive Visual Suite
+## Interactive Visual Suite
 
 TDC uses a dark-themed Plotly engine to generate highly informative, annotated charts.
 
@@ -25,7 +25,7 @@ When rendering a series of candles, TDC displays continuous trends and flags mic
 
 ---
 
-## 🗺️ Table of Contents
+## Table of Contents
 
 1. [Features & Potentials](#features--potentials)
 2. [Algorithm Overview](#algorithm-overview)
@@ -40,7 +40,7 @@ When rendering a series of candles, TDC displays continuous trends and flags mic
 
 ---
 
-## 🚀 Features & Potentials
+## Features & Potentials
 
 * **Intrabar Density Profiles**: Render horizontal gradients indicating time-at-price density, supporting both bull (teal) and bear (red) color systems.
 * **Point of Control (POC)**: Automatically identify and plot the price level containing the highest density within each candle.
@@ -54,7 +54,7 @@ When rendering a series of candles, TDC displays continuous trends and flags mic
 
 ---
 
-## 🧠 Algorithm Overview
+## Algorithm Overview
 
 ### 1. Density Profile Computation
 Using intrabar price points, TDC bins prices over the high-low range. Let $N$ be the number of bins (`nbins`):
@@ -84,7 +84,7 @@ When real intrabar data is unavailable, TDC generates synthetic tick paths. It f
 
 ---
 
-## 📦 Installation
+## Installation
 
 Clone the repository and install the development dependencies using `uv`:
 
@@ -96,7 +96,7 @@ uv sync --dev
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
 1. Run the default pipeline (uses Yahoo Finance 5-minute data for AAPL and outputs HTML/PNG files to `./output`):
    ```bash
@@ -110,7 +110,7 @@ uv sync --dev
 
 ---
 
-## ⚙️ Configuration Reference
+## Configuration Reference
 
 TDC is configured via `tdc.yaml`. Below are the primary configuration parameters:
 
@@ -134,7 +134,7 @@ TDC is configured via `tdc.yaml`. Below are the primary configuration parameters
 
 ---
 
-## 📊 Machine Learning Feature Exports
+## Machine Learning Feature Exports
 
 When exporting data (in CSV or Parquet format), TDC computes a comprehensive set of features per parent bar:
 
@@ -152,7 +152,7 @@ These features can be used directly for tabular models or visualized to construc
 
 ---
 
-## ⚠️ Accuracy & Confidence Metrics
+## Accuracy & Confidence Metrics
 
 TDC estimates confidence for every candle to prevent misleading signals:
 * **High Confidence**: Real tick-by-tick CSV file matching parent candles exactly.
@@ -161,17 +161,17 @@ TDC estimates confidence for every candle to prevent misleading signals:
 
 ---
 
-## 📖 Detailed Documentation
+## Detailed Documentation
 
 Explore the guides in the `docs/` directory:
-* 📄 [User Guide](docs/user_guide.md) - Installation, command usages, and config reference.
-* 🛠️ [Developer Guide](docs/developer_guide.md) - Package structure, codebase details, and architecture design.
-* 📈 [Accuracy and Confidence](docs/accuracy_and_confidence.md) - In-depth breakdown of confidence grading rules.
-* 🗺️ [Technical Project Plan](docs/TDC_project_plan.md) - Underlying formulas, data structures, and roadmap details.
+* [User Guide](docs/user_guide.md) - Installation, command usages, and config reference.
+* [Developer Guide](docs/developer_guide.md) - Package structure, codebase details, and architecture design.
+* [Accuracy and Confidence](docs/accuracy_and_confidence.md) - In-depth breakdown of confidence grading rules.
+* [Technical Project Plan](docs/TDC_project_plan.md) - Underlying formulas, data structures, and roadmap details.
 
 ---
 
-## 🔧 Development & Versioning
+## Development & Versioning
 
 Run the test suite and formatter:
 ```bash
@@ -191,6 +191,6 @@ uv run bump major   # 0.1.0 -> 1.0.0
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
